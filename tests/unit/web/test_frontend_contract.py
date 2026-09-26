@@ -30,7 +30,10 @@ class FrontendContractTests(unittest.TestCase):
 
     def test_public_auth_status_is_used_for_bootstrap(self) -> None:
         self.assertIn("/api/auth/status", self.js)
-        self.assertIn("/api/auth/status", (Path(__file__).resolve().parents[3] / "app" / "web" / "static" / "admin.js").read_text(encoding="utf-8"))
+        admin_js = (Path(__file__).resolve().parents[3] / "app" / "web" / "static" / "admin.js").read_text(encoding="utf-8")
+        # The admin page bootstraps from its own, admin-session-only status.
+        self.assertIn("/api/admin/status", admin_js)
+        self.assertNotIn("/api/auth/status", admin_js)
         # Protected /me remains available for server/API consumers, but public page
         # bootstrap must not trigger an expected 401 browser resource error.
         bootstrap_section = self.js.split("async function refreshMe()", 1)[1].split("async function submitAuth", 1)[0]
@@ -55,6 +58,20 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("لوحة الإدارة", admin_html)
         for route in ("/api/admin/login", "/api/admin/users", "/api/admin/codes", "/api/admin/audit"):
             self.assertIn(route, admin_js)
+
+    def test_user_and_admin_pages_use_separate_session_tokens(self) -> None:
+        admin_js = (Path(__file__).resolve().parents[3] / "app" / "web" / "static" / "admin.js").read_text(encoding="utf-8")
+        # User page: session CSRF from its own cookie, never the admin one.
+        self.assertIn("getCookie('eh_csrf')", self.js)
+        self.assertNotIn("eh_admin_", self.js)
+        self.assertNotIn("/api/admin/logout", self.js)
+        # Admin page: admin cookie/endpoints only, never the user session ones.
+        self.assertIn("cookie('eh_admin_csrf')", admin_js)
+        self.assertIn("/api/admin/csrf", admin_js)
+        self.assertIn("/api/admin/logout", admin_js)
+        self.assertNotIn("'eh_csrf'", admin_js)
+        self.assertNotIn("/api/auth/logout", admin_js)
+        self.assertNotIn("/api/auth/csrf", admin_js)
 
     def test_responsive_css_and_no_horizontal_overflow(self) -> None:
         self.assertIn("overflow-x:auto", self.css.replace(" ", ""))

@@ -6,6 +6,7 @@ public-edge security, observability and production controls.
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import sqlite3
@@ -22,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.admin.schemas import AdminLoginRequest, CodeGenerationRequest, SubscriptionActionRequest
 from app.admin.service import AdminService
 from app.auth.rate_limit import RateLimiter
+from app.auth.repository import utc_now
 from app.auth.schemas import LoginRequest, RedeemCodeRequest, RegisterRequest
 from app.auth.service import AuthError, AuthService
 from app.db.database import Database
@@ -40,10 +42,21 @@ from config.config_hunter import Settings, load_settings
 
 
 APP_VERSION = "phase13-v1"
+# User and admin areas use fully independent cookies so that both can be signed
+# in from the same browser at the same time without replacing each other.
 SESSION_COOKIE = "eh_session"
 CSRF_COOKIE = "eh_csrf"
 BOOTSTRAP_CSRF_COOKIE = "eh_bootstrap_csrf"
+ADMIN_SESSION_COOKIE = "eh_admin_session"
+ADMIN_CSRF_COOKIE = "eh_admin_csrf"
+ADMIN_BOOTSTRAP_CSRF_COOKIE = "eh_admin_bootstrap_csrf"
 DEVICE_COOKIE = "eh_device"
+USER_SCOPE = "user"
+ADMIN_SCOPE = "admin"
+# Diagnostic-only fields: logged server-side, never returned to the client.
+_PRIVATE_ERROR_DETAILS = frozenset({"session_id"})
+
+auth_logger = logging.getLogger("edge_hunter.auth")
 
 
 def create_web_app(
@@ -117,8 +130,9 @@ def create_web_app(
     @app.exception_handler(AuthError)
     async def auth_error_handler(request: Request, exc: AuthError) -> Response:
         # Keep all auth errors in one structured, non-secret API contract.
+        _log_auth_failure(request, "request", exc)
         return Response(
-            content=json.dumps({"detail": {"code": exc.code, "message": str(exc), **exc.details, "request_id": getattr(request.state, "request_id", None)}}, ensure_ascii=False),
+            content=json.dumps({"detail": {"code": exc.code, "message": str(exc), **_public_details(exc), "request_id": getattr(request.state, "request_id", None)}}, ensure_ascii=False),
             status_code=exc.status_code,
             media_type="application/json",
         )
@@ -248,6 +262,20 @@ def create_web_app(
         )
         return {"csrf_token": token}
 
+    @app.get("/api/admin/csrf")
+    async def admin_csrf(response: Response) -> dict:
+        # Separate bootstrap cookie: the user page refreshing its own bootstrap
+        # token must not invalidate the token held by an open admin login form.
+        token = auth.issue_bootstrap_csrf()
+        _set_cookie(
+            response,
+            ADMIN_BOOTSTRAP_CSRF_COOKIE,
+            token,
+            httponly=False,
+            secure=settings.cookie_secure,
+        )
+        return {"csrf_token": token}
+
     @app.post("/api/auth/register")
     async def register(payload: RegisterRequest, request: Request, response: Response) -> dict:
         _check_bootstrap_csrf(request, auth)
@@ -274,7 +302,7 @@ def create_web_app(
 
     @app.post("/api/admin/login")
     async def admin_login(payload: AdminLoginRequest, request: Request, response: Response) -> dict:
-        _check_bootstrap_csrf(request, auth)
+        _check_admin_bootstrap_csrf(request, auth)
         _limit(limiter, request, "admin_login", settings)
         user, session_token, csrf_token, device_token = auth.login(
             payload.email,
@@ -282,8 +310,38 @@ def create_web_app(
             request.cookies.get(DEVICE_COOKIE),
             require_admin=True,
         )
-        _set_auth_cookies(response, session_token, csrf_token, device_token, settings)
+        # Admin cookies only: an existing user session in this browser is kept.
+        _set_admin_auth_cookies(response, session_token, csrf_token, device_token, settings)
         return {"user": auth.user_payload(user), "csrf_token": csrf_token}
+
+    @app.get("/api/admin/status")
+    async def admin_status(request: Request) -> dict:
+        """Non-error admin authentication state, derived from the admin session only."""
+        raw_token = request.cookies.get(ADMIN_SESSION_COOKIE)
+        if not raw_token:
+            return {"authenticated": False, "reason": "anonymous", "user": None}
+        try:
+            session = auth.get_session(raw_token, expected_scope=ADMIN_SCOPE)
+        except AuthError as exc:
+            _log_auth_failure(request, ADMIN_SCOPE, exc)
+            return {"authenticated": False, "reason": exc.code, "user": None}
+        if session.user.role != "admin" or session.user.status != "active":
+            return {"authenticated": False, "reason": "admin_forbidden", "user": None}
+        return {
+            "authenticated": True,
+            "reason": "authenticated",
+            "user": auth.user_payload(session.user),
+            "session_expires_at": session.expires_at.isoformat(),
+        }
+
+    @app.post("/api/admin/logout")
+    async def admin_logout(request: Request, response: Response) -> dict:
+        session = _admin_csrf_session(request, auth)
+        auth.logout(request.cookies.get(ADMIN_SESSION_COOKIE))
+        auth_logger.info("admin logout", extra={"session_id": session.session_id, "user_id": session.user.id})
+        # Clears admin cookies only; the user session in the same browser survives.
+        _clear_admin_auth_cookies(response, settings)
+        return {"status": "ok"}
 
     @app.get("/api/auth/status")
     async def auth_status(request: Request) -> dict:
@@ -297,8 +355,9 @@ def create_web_app(
         if not raw_token:
             return {"authenticated": False, "reason": "anonymous", "user": None}
         try:
-            session = auth.get_session(raw_token)
+            session = auth.get_session(raw_token, expected_scope=USER_SCOPE)
         except AuthError as exc:
+            _log_auth_failure(request, USER_SCOPE, exc)
             return {"authenticated": False, "reason": exc.code, "user": None}
         return {
             "authenticated": True,
@@ -309,19 +368,23 @@ def create_web_app(
 
     @app.get("/api/auth/me")
     async def me(request: Request) -> dict:
-        session = auth.get_session(request.cookies.get(SESSION_COOKIE))
+        session = _user_session(request, auth)
         return {"user": auth.user_payload(session.user), "session_expires_at": session.expires_at.isoformat()}
 
     @app.post("/api/auth/logout")
     async def logout(request: Request, response: Response) -> dict:
-        auth.verify_csrf(request.cookies.get(SESSION_COOKIE), request.headers.get("X-CSRF-Token"))
+        session = _user_csrf_session(request, auth)
         auth.logout(request.cookies.get(SESSION_COOKIE))
+        auth_logger.info("user logout", extra={"session_id": session.session_id, "user_id": session.user.id})
+        # Clears user cookies only; the admin session in the same browser survives.
         _clear_auth_cookies(response, settings)
         return {"status": "ok"}
 
     @app.post("/api/auth/redeem")
     async def redeem(payload: RedeemCodeRequest, request: Request) -> dict:
-        session = auth.verify_csrf(request.cookies.get(SESSION_COOKIE), request.headers.get("X-CSRF-Token"))
+        # Resolved strictly from the user session cookie + user CSRF token;
+        # the admin session (if any) is never consulted here.
+        session = _user_csrf_session(request, auth)
         if session.user.role != "user":
             raise _http_error(AuthError("user account required", code="user_required", status_code=403))
         _limit(limiter, request, "redeem", settings)
@@ -337,8 +400,8 @@ def create_web_app(
 
     @app.post("/api/analyze", response_model=AnalysisResponse)
     async def analyze(payload: AnalyzeRequest, request: Request) -> dict:
-        auth.verify_csrf(request.cookies.get(SESSION_COOKIE), request.headers.get("X-CSRF-Token"))
-        auth.require_analysis_access(request.cookies.get(SESSION_COOKIE))
+        _user_csrf_session(request, auth)
+        auth.require_analysis_access(request.cookies.get(SESSION_COOKIE), expected_scope=USER_SCOPE)
         try:
             return service.analyze(payload)
         except LiveDataUnavailableError as exc:
@@ -461,14 +524,22 @@ def create_web_app(
     @app.post("/api/admin/codes/{code_id}/revoke")
     async def revoke_code(code_id: int, request: Request) -> dict:
         session = _admin_mutation_session(request, auth)
-        row = auth.repo.database.execute(
-            "UPDATE subscription_codes SET status = 'revoked' WHERE id = ? AND status = 'available'",
-            (code_id,),
-        )
-        auth.database.commit()
+        # Status change + audit entry commit together or not at all.
+        with database.transaction() as connection:
+            row = connection.execute(
+                "UPDATE subscription_codes SET status = 'revoked' WHERE id = ? AND status = 'available'",
+                (code_id,),
+            )
+            if row.rowcount == 1:
+                connection.execute(
+                    """
+                    INSERT INTO audit_logs(actor_user_id, action, target_type, target_id, details_json, created_at)
+                    VALUES (?, 'revoke_code', 'subscription_code', ?, '{}', ?)
+                    """,
+                    (session.user.id, str(code_id), utc_now().isoformat()),
+                )
         if row.rowcount != 1:
             raise _http_error(AuthError("code is not available", code="code_not_available", status_code=409))
-        auth.repo.add_audit(session.user.id, "revoke_code", "subscription_code", str(code_id), {})
         return {"status": "revoked"}
 
     return app
@@ -483,10 +554,93 @@ def _limit(limiter: RateLimiter, request: Request, action: str, settings: Settin
     )
 
 
+def _public_details(exc: AuthError) -> dict[str, Any]:
+    return {key: value for key, value in exc.details.items() if key not in _PRIVATE_ERROR_DETAILS}
+
+
+def _log_auth_failure(request: Request, area: str, exc: AuthError) -> None:
+    """Record why authentication failed using non-secret identifiers only.
+
+    Tokens, cookies and CSRF values are never logged; only the failure code,
+    its reason (no/invalid/stale session, scope mismatch, CSRF failure...),
+    the area and the internal session id when one was resolved.
+    """
+    auth_logger.warning(
+        "auth request rejected",
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+            "path": request.url.path,
+            "area": area,
+            "code": exc.code,
+            "reason": exc.details.get("reason"),
+            "session_id": exc.details.get("session_id"),
+        },
+    )
+
+
+def _resolve(request: Request, area: str, resolver):
+    try:
+        return resolver()
+    except AuthError as exc:
+        _log_auth_failure(request, area, exc)
+        raise _http_error(exc) from exc
+
+
+def _user_session(request: Request, auth: AuthService):
+    return _resolve(
+        request,
+        USER_SCOPE,
+        lambda: auth.get_session(request.cookies.get(SESSION_COOKIE), expected_scope=USER_SCOPE),
+    )
+
+
+def _user_csrf_session(request: Request, auth: AuthService):
+    return _resolve(
+        request,
+        USER_SCOPE,
+        lambda: auth.verify_csrf(
+            request.cookies.get(SESSION_COOKIE),
+            request.headers.get("X-CSRF-Token"),
+            expected_scope=USER_SCOPE,
+        ),
+    )
+
+
+def _admin_csrf_session(request: Request, auth: AuthService):
+    return _resolve(
+        request,
+        ADMIN_SCOPE,
+        lambda: auth.verify_csrf(
+            request.cookies.get(ADMIN_SESSION_COOKIE),
+            request.headers.get("X-CSRF-Token"),
+            expected_scope=ADMIN_SCOPE,
+        ),
+    )
+
+
 def _admin_session(request: Request, auth: AuthService):
-    session = auth.get_session(request.cookies.get(SESSION_COOKIE))
-    if session.user.role != "admin" or session.scope != "admin":
-        raise _http_error(AuthError("admin access is required", code="admin_forbidden", status_code=403))
+    raw_token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if not raw_token and request.cookies.get(SESSION_COOKIE):
+        # A signed-in user without an admin session is authenticated but not
+        # authorized for the admin area.
+        exc = AuthError(
+            "admin access is required",
+            code="admin_forbidden",
+            status_code=403,
+            details={"reason": "no_admin_session"},
+        )
+        _log_auth_failure(request, ADMIN_SCOPE, exc)
+        raise _http_error(exc)
+    session = _resolve(request, ADMIN_SCOPE, lambda: auth.get_session(raw_token, expected_scope=ADMIN_SCOPE))
+    if session.user.role != "admin" or session.user.status != "active":
+        exc = AuthError(
+            "admin access is required",
+            code="admin_forbidden",
+            status_code=403,
+            details={"reason": "authorization_failure", "session_id": session.session_id},
+        )
+        _log_auth_failure(request, ADMIN_SCOPE, exc)
+        raise _http_error(exc)
     return session
 
 
@@ -494,28 +648,47 @@ def _admin_mutation_session(request: Request, auth: AuthService):
     # Use the reconciliation-aware admin session resolver for every privileged
     # mutation. This is important when the browser keeps a session created
     # before an admin account was recreated/restored with a new user id.
-    try:
-        return auth.resolve_admin_session(
-            request.cookies.get(SESSION_COOKIE),
+    # Reconciliation only ever runs on the admin cookie with an admin-scoped
+    # session, so it can never turn a user session into an admin one.
+    return _resolve(
+        request,
+        ADMIN_SCOPE,
+        lambda: auth.resolve_admin_session(
+            request.cookies.get(ADMIN_SESSION_COOKIE),
             request.headers.get("X-CSRF-Token"),
-        )
-    except AuthError as exc:
-        raise _http_error(exc) from exc
+        ),
+    )
 
 
 def _check_bootstrap_csrf(request: Request, auth: AuthService) -> None:
-    try:
-        auth.verify_bootstrap_csrf(
+    _resolve(
+        request,
+        USER_SCOPE,
+        lambda: auth.verify_bootstrap_csrf(
             request.cookies.get(BOOTSTRAP_CSRF_COOKIE),
             request.headers.get("X-CSRF-Token"),
-        )
-    except AuthError as exc:
-        raise _http_error(exc) from exc
+        ),
+    )
+
+
+def _check_admin_bootstrap_csrf(request: Request, auth: AuthService) -> None:
+    header = request.headers.get("X-CSRF-Token")
+    admin_cookie = request.cookies.get(ADMIN_BOOTSTRAP_CSRF_COOKIE)
+    # The admin page uses its own bootstrap cookie. The shared bootstrap cookie
+    # is still accepted (double-submit match required) for existing API clients.
+    cookie = admin_cookie if admin_cookie and header and hmac.compare_digest(admin_cookie, header) else request.cookies.get(BOOTSTRAP_CSRF_COOKIE)
+    _resolve(request, ADMIN_SCOPE, lambda: auth.verify_bootstrap_csrf(cookie, header))
 
 
 def _set_auth_cookies(response: Response, session_token: str, csrf_token: str, device_token: str, settings: Settings) -> None:
     _set_cookie(response, SESSION_COOKIE, session_token, httponly=True, secure=settings.cookie_secure)
     _set_cookie(response, CSRF_COOKIE, csrf_token, httponly=False, secure=settings.cookie_secure)
+    _set_cookie(response, DEVICE_COOKIE, device_token, httponly=True, secure=settings.cookie_secure, max_age=31536000)
+
+
+def _set_admin_auth_cookies(response: Response, session_token: str, csrf_token: str, device_token: str, settings: Settings) -> None:
+    _set_cookie(response, ADMIN_SESSION_COOKIE, session_token, httponly=True, secure=settings.cookie_secure)
+    _set_cookie(response, ADMIN_CSRF_COOKIE, csrf_token, httponly=False, secure=settings.cookie_secure)
     _set_cookie(response, DEVICE_COOKIE, device_token, httponly=True, secure=settings.cookie_secure, max_age=31536000)
 
 
@@ -536,9 +709,14 @@ def _clear_auth_cookies(response: Response, settings: Settings) -> None:
         response.delete_cookie(name, path="/", secure=settings.cookie_secure, httponly=name == SESSION_COOKIE)
 
 
+def _clear_admin_auth_cookies(response: Response, settings: Settings) -> None:
+    for name in (ADMIN_SESSION_COOKIE, ADMIN_CSRF_COOKIE, ADMIN_BOOTSTRAP_CSRF_COOKIE):
+        response.delete_cookie(name, path="/", secure=settings.cookie_secure, httponly=name == ADMIN_SESSION_COOKIE)
+
+
 def _http_error(exc: AuthError) -> HTTPException:
     detail: dict[str, Any] = {"code": exc.code, "message": str(exc)}
-    detail.update(exc.details)
+    detail.update(_public_details(exc))
     return HTTPException(status_code=exc.status_code, detail=detail)
 
 

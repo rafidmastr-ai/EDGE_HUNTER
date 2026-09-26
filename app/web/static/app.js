@@ -17,7 +17,13 @@
   };
 
   const directionText = { BUY: 'BUY', SELL: 'SELL', NO_CLEAR_SIGNAL: 'NO CLEAR SIGNAL' };
-  let csrfToken = null;
+  // Two different tokens, never interchangeable:
+  // - bootstrapToken: pre-login double-submit token, only for /api/auth/login|register.
+  // - the user session CSRF token: read from the eh_csrf cookie (set by the server
+  //   together with the user session), so it stays correct after reloads and is
+  //   never replaced by the admin area, which uses its own separate cookies.
+  let bootstrapToken = null;
+  let sessionCsrfToken = null;
   let symbolCategory = 'all';
   let symbolSearchTimer = null;
   let symbolRequestController = null;
@@ -185,16 +191,27 @@
     const response = await fetch('/api/auth/csrf');
     if (!response.ok) throw new Error('csrf bootstrap failed');
     const data = await response.json();
-    csrfToken = data.csrf_token;
-    return csrfToken;
+    bootstrapToken = data.csrf_token;
+    return bootstrapToken;
   }
 
-  async function authFetch(url, options = {}) {
+  function withJson(options, token) {
     const headers = new Headers(options.headers || {});
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-    const token = csrfToken || getCookie('eh_csrf');
     if (token) headers.set('X-CSRF-Token', token);
-    return fetch(url, { ...options, headers });
+    return { ...options, headers };
+  }
+
+  // Authenticated user requests: always the user session CSRF token.
+  async function authFetch(url, options = {}) {
+    const token = getCookie('eh_csrf') || sessionCsrfToken;
+    return fetch(url, withJson(options, token));
+  }
+
+  // Pre-login requests (login/register): the bootstrap token.
+  async function bootstrapFetch(url, options = {}) {
+    if (!bootstrapToken) await bootstrapCsrf();
+    return fetch(url, withJson(options, bootstrapToken));
   }
 
   function showAuthState(user) {
@@ -234,6 +251,8 @@
       }
     }
     authenticated = false;
+    sessionCsrfToken = null;
+    el('auth-email').textContent = '';
     el('account-pill').textContent = 'غير مسجل';
     el('auth-actions').hidden = true;
     el('login-tab').classList.remove('hidden');
@@ -248,18 +267,20 @@
     const data = kind === 'login'
       ? { email: el('login-email').value, password: el('login-password').value }
       : { email: el('register-email').value, password: el('register-password').value, password_confirm: el('register-password-confirm').value };
-    if (!csrfToken) await bootstrapCsrf();
-    const response = await authFetch(`/api/auth/${kind}`, { method: 'POST', body: JSON.stringify(data) });
+    const response = await bootstrapFetch(`/api/auth/${kind}`, { method: 'POST', body: JSON.stringify(data) });
     const body = await response.json();
     if (!response.ok) throw new Error(body?.detail?.message || 'فشل تسجيل الدخول');
-    csrfToken = body.csrf_token || csrfToken;
+    sessionCsrfToken = body.csrf_token || null;
     showAuthState(body.user);
   }
 
   async function logout() {
     const response = await authFetch('/api/auth/logout', { method: 'POST' });
-    if (!response.ok) throw new Error('فشل تسجيل الخروج');
-    csrfToken = null;
+    if (!response.ok) {
+      if (response.status === 401) { await refreshMe(); return; }
+      throw new Error('فشل تسجيل الخروج');
+    }
+    sessionCsrfToken = null;
     authenticated = false;
     await bootstrapCsrf();
     await refreshMe();
@@ -271,7 +292,11 @@
     const code = el('redeem-code').value.trim().toUpperCase();
     const response = await authFetch('/api/auth/redeem', { method: 'POST', body: JSON.stringify({ code }) });
     const body = await response.json();
-    if (!response.ok) throw new Error(body?.detail?.message || 'تعذر تفعيل الكود');
+    if (!response.ok) {
+      // Never keep showing an account the server no longer recognises.
+      if (response.status === 401) await refreshMe();
+      throw new Error(body?.detail?.message || 'تعذر تفعيل الكود');
+    }
     await refreshMe();
     el('redeem-code').value = '';
   }

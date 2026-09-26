@@ -1,29 +1,44 @@
 (() => {
   const el = (id) => document.getElementById(id);
-  let csrfToken = null;
+  // The admin area has its own session (eh_admin_session), its own session CSRF
+  // token (eh_admin_csrf) and its own bootstrap token, fully separate from the
+  // user area, so signing in/out here never touches the user session.
+  let bootstrapToken = null;
+  let sessionCsrfToken = null;
 
   const cookie = (name) => document.cookie.split('; ').find(row => row.startsWith(`${name}=`))?.slice(name.length + 1) || null;
 
   async function bootstrapCsrf() {
-    const response = await fetch('/api/auth/csrf');
+    const response = await fetch('/api/admin/csrf');
     if (!response.ok) throw new Error('تعذر تهيئة حماية الطلبات');
     const data = await response.json();
-    csrfToken = data.csrf_token;
+    bootstrapToken = data.csrf_token;
   }
 
-  async function request(url, options = {}) {
+  function withHeaders(options, token) {
     const headers = new Headers(options.headers || {});
-    // Authenticated mutations must use the session-bound CSRF token.
-    // On a page reload, csrfToken can still hold the bootstrap token,
-    // which is intentionally different from the token stored with the session.
-    const token = cookie('eh_csrf') || csrfToken;
     if (token) headers.set('X-CSRF-Token', token);
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-    return fetch(url, { ...options, headers });
+    return { ...options, headers };
+  }
+
+  // Authenticated admin requests: always the admin session CSRF token.
+  async function request(url, options = {}) {
+    return fetch(url, withHeaders(options, cookie('eh_admin_csrf') || sessionCsrfToken));
+  }
+
+  function showLogin(message = null) {
+    sessionCsrfToken = null;
+    el('admin-dashboard').hidden = true;
+    el('admin-login-panel').hidden = false;
+    if (message) {
+      el('admin-login-error').hidden = false;
+      el('admin-login-error').textContent = message;
+    }
   }
 
   async function ensureAdmin() {
-    const response = await fetch('/api/auth/status');
+    const response = await fetch('/api/admin/status');
     if (!response.ok) return false;
     const body = await response.json();
     return body.authenticated === true && body.user?.role === 'admin';
@@ -32,15 +47,16 @@
   async function login(event) {
     event.preventDefault();
     try {
-      if (!csrfToken) await bootstrapCsrf();
-      const response = await request('/api/admin/login', {
+      if (!bootstrapToken) await bootstrapCsrf();
+      const response = await fetch('/api/admin/login', withHeaders({
         method: 'POST',
         body: JSON.stringify({ email: el('admin-email').value, password: el('admin-password').value }),
-      });
+      }, bootstrapToken));
       const body = await response.json();
       if (!response.ok) throw new Error(body?.detail?.message || 'تعذر الدخول');
-      csrfToken = body.csrf_token || csrfToken;
-      showDashboard();
+      sessionCsrfToken = body.csrf_token || null;
+      el('admin-login-error').hidden = true;
+      await showDashboard();
     } catch (error) {
       el('admin-login-error').hidden = false;
       el('admin-login-error').textContent = error.message;
@@ -59,7 +75,10 @@
     const [dashboardResponse, usersResponse, codesResponse, auditResponse] = await Promise.all([
       request('/api/admin/dashboard'), request('/api/admin/users'), request('/api/admin/codes'), request('/api/admin/audit?limit=50'),
     ]);
-    if ([dashboardResponse, usersResponse, codesResponse, auditResponse].some(r => r.status === 401 || r.status === 403)) throw new Error('انتهت جلسة الإدارة أو لم تعد الصلاحية متاحة');
+    if ([dashboardResponse, usersResponse, codesResponse, auditResponse].some(r => r.status === 401 || r.status === 403)) {
+      showLogin('انتهت جلسة الإدارة أو لم تعد الصلاحية متاحة');
+      throw new Error('انتهت جلسة الإدارة أو لم تعد الصلاحية متاحة');
+    }
     const dashboard = await dashboardResponse.json();
     const users = await usersResponse.json();
     const codes = await codesResponse.json();
@@ -109,7 +128,8 @@
 
   el('admin-login-form').addEventListener('submit', login);
   el('admin-logout').addEventListener('click', async () => {
-    await request('/api/auth/logout', { method: 'POST' });
+    // Admin logout only; the user session in this browser is left untouched.
+    await request('/api/admin/logout', { method: 'POST' });
     window.location.href = '/admin';
   });
   el('code-form').addEventListener('submit', async (event) => {

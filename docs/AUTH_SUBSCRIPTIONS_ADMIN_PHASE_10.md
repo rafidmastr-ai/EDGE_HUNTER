@@ -24,7 +24,14 @@ Phase 10 adds server-side account access control to the Phase 09 analysis API.
 
 ## Admin flow
 
-Admin users use `/api/admin/login` and the same secure session cookie. Admin endpoints are role protected and cover dashboard counts, users, code generation/status, revoke, extension, device relinking and audit logs.
+Admin users use `/api/admin/login`. The admin area has its own session, CSRF token and bootstrap token, fully independent from the user area, so a user and an admin can be signed in from the same browser at the same time:
+
+| Area  | Session cookie (HttpOnly) | Session CSRF cookie | Bootstrap CSRF (endpoint → cookie)             | Status / logout                          |
+|-------|---------------------------|---------------------|------------------------------------------------|------------------------------------------|
+| User  | `eh_session`              | `eh_csrf`           | `/api/auth/csrf` → `eh_bootstrap_csrf`         | `/api/auth/status`, `/api/auth/logout`   |
+| Admin | `eh_admin_session`        | `eh_admin_csrf`     | `/api/admin/csrf` → `eh_admin_bootstrap_csrf`  | `/api/admin/status`, `/api/admin/logout` |
+
+User endpoints accept only `user`-scoped sessions from `eh_session`; admin endpoints accept only `admin`-scoped sessions from `eh_admin_session`. Admin login/logout never touches the user cookies and user login/logout never touches the admin cookies. `eh_device` is shared because it identifies the browser, not a session. Admin endpoints are role protected and cover dashboard counts, users, code generation/status, revoke, extension, device relinking and audit logs.
 
 Generate the first admin locally:
 

@@ -76,9 +76,14 @@ class AuthRepository:
         self.database.commit()
 
     def session_row(self, raw_token: str) -> sqlite3.Row | None:
+        # Explicit aliases: ``id``/``created_at`` must be the *user* columns
+        # (consumed by AuthService.user_from_row) and never the session ones.
+        # ``SELECT s.*, u.*`` made sqlite3.Row resolve ``id`` to the session id.
         return self.database.execute(
             """
-            SELECT s.*, u.email, u.role, u.status,
+            SELECT s.id AS session_id, s.user_id, s.scope, s.csrf_hash,
+                   s.created_at AS session_created_at, s.expires_at,
+                   u.id AS id, u.email, u.role, u.status,
                    u.trial_started_at, u.trial_expires_at, u.created_at,
                    u.last_login_at, u.device_hash
             FROM auth_sessions s

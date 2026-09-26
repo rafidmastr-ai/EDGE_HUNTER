@@ -169,31 +169,61 @@ class AuthService:
         if raw_token:
             self.repo.delete_session(raw_token)
 
-    def get_session(self, raw_token: str | None) -> SessionContext:
+    def get_session(self, raw_token: str | None, *, expected_scope: str | None = None) -> SessionContext:
+        """Resolve a session token, optionally requiring a specific session scope.
+
+        User and admin sessions live in separate cookies. ``expected_scope``
+        guarantees that a token presented in the user area is a ``user`` session
+        and a token presented in the admin area is an ``admin`` session, so one
+        area can never be authenticated by the other's session.
+        """
+        area = expected_scope or "any"
         if not raw_token:
-            raise AuthenticationError("login required")
+            raise AuthenticationError(
+                "login required",
+                details={"reason": f"no_{area}_session" if expected_scope else "no_session"},
+            )
         row = self.repo.session_row(raw_token)
         if row is None:
-            raise AuthenticationError("login required")
+            raise AuthenticationError(
+                "login required",
+                details={"reason": f"invalid_{area}_session" if expected_scope else "invalid_session"},
+            )
+        scope = str(row["scope"])
+        if expected_scope is not None and scope != expected_scope:
+            # Never touch (or expire) a session that belongs to the other area.
+            raise AuthenticationError(
+                "login required",
+                details={"reason": "session_scope_mismatch", "session_id": int(row["session_id"])},
+            )
         expires_at = dt(row["expires_at"])
         if expires_at is None or expires_at <= utc_now():
             self.repo.delete_session(raw_token)
-            raise SessionExpiredError("session has expired")
+            raise SessionExpiredError(
+                "session has expired",
+                details={"reason": f"expired_{area}_session" if expected_scope else "expired_session"},
+            )
         return SessionContext(
-            session_id=int(row["id"]),
+            session_id=int(row["session_id"]),
             user=self.user_from_row(row),
-            scope=str(row["scope"]),
+            scope=scope,
             csrf_token="",
             expires_at=expires_at,
         )
 
-    def verify_csrf(self, raw_token: str | None, csrf_token: str | None) -> SessionContext:
-        session = self.get_session(raw_token)
+    def verify_csrf(
+        self,
+        raw_token: str | None,
+        csrf_token: str | None,
+        *,
+        expected_scope: str | None = None,
+    ) -> SessionContext:
+        session = self.get_session(raw_token, expected_scope=expected_scope)
         if not csrf_token:
-            raise ForbiddenError("CSRF token is required", code="csrf_required")
+            raise ForbiddenError("CSRF token is required", code="csrf_required", details={"session_id": session.session_id})
         row = self.repo.session_row(raw_token)
         if row is None or not hmac.compare_digest(str(row["csrf_hash"]), token_hash(csrf_token)):
-            raise ForbiddenError("invalid CSRF token", code="csrf_invalid")
+            raise ForbiddenError("invalid CSRF token", code="csrf_invalid", details={"session_id": session.session_id})
         return SessionContext(
             session_id=session.session_id,
             user=session.user,
@@ -225,8 +255,8 @@ class AuthService:
             return AccessState(True, "trial_active", "الفترة التجريبية فعالة", True, False, trial_expires)
         return AccessState(False, "subscription_expired", "انتهى الاشتراك أو التجربة", False, False, None)
 
-    def require_analysis_access(self, raw_token: str | None) -> SessionContext:
-        session = self.get_session(raw_token)
+    def require_analysis_access(self, raw_token: str | None, *, expected_scope: str | None = None) -> SessionContext:
+        session = self.get_session(raw_token, expected_scope=expected_scope)
         if session.user.role == "admin":
             return session
         access = self.access_state(session.user.id)
@@ -247,21 +277,28 @@ class AuthService:
         Re-resolve the email and rebind the session to the current admin row before
         any privileged mutation is executed.
         """
-        session = self.verify_csrf(raw_token, csrf_token)
-        if session.scope != "admin":
-            raise ForbiddenError("admin access is required", code="admin_forbidden", status_code=403)
+        session = self.verify_csrf(raw_token, csrf_token, expected_scope="admin")
 
         current = self.repo.user_by_email(session.user.email)
         if current is None:
             if raw_token:
                 self.logout(raw_token)
-            raise AuthenticationError("admin account no longer exists", code="admin_session_stale")
+            raise AuthenticationError(
+                "admin account no longer exists",
+                code="admin_session_stale",
+                details={"reason": "stale_admin_session", "session_id": session.session_id},
+            )
 
         current_user = self.user_from_row(current)
         if current_user.status != "active" or current_user.role != "admin":
             if raw_token:
                 self.logout(raw_token)
-            raise ForbiddenError("admin access is required", code="admin_forbidden", status_code=403)
+            raise ForbiddenError(
+                "admin access is required",
+                code="admin_forbidden",
+                status_code=403,
+                details={"reason": "invalid_admin_session", "session_id": session.session_id},
+            )
 
         if current_user.id != session.user.id:
             self.repo.rebind_session_user(session.session_id, current_user.id)
@@ -298,7 +335,11 @@ class AuthService:
             raise ValidationError("subscription code has expired", code="code_expired")
 
         if self.repo.user_by_id(user_id) is None:
-            raise AuthenticationError("login required")
+            raise AuthenticationError(
+                "user account no longer exists",
+                code="user_session_stale",
+                details={"reason": "stale_user_session"},
+            )
         connection = self.database.connection
         with self._write_lock:
             try:
