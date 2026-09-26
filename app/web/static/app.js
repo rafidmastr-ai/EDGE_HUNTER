@@ -10,7 +10,7 @@
     very_strong: { label: 'إشارة قوية جدًا', detail: 'القرار مدعوم بدرجة مرتفعة ضمن النموذج الحالي.', icon: '✓' },
     no_clear_signal: { label: 'لا توجد إشارة واضحة', detail: 'لم تتوافر أدلة كافية لاختيار اتجاه نهائي.', icon: '—' },
     api_error: { label: 'خطأ في API', detail: 'تعذر إتمام طلب التحليل.', icon: '!' },
-    data_unavailable: { label: 'البيانات غير متاحة', detail: 'لا توجد بيانات محلية صالحة لهذا الرمز.', icon: '!' },
+    data_unavailable: { label: 'البيانات غير متاحة', detail: 'تعذر الحصول على بيانات السوق الحية لهذا الرمز.', icon: '!' },
     session_expired: { label: 'انتهت الجلسة', detail: 'يرجى إعادة تسجيل الدخول.', icon: '!' },
     unauthorized: { label: 'غير مصرح', detail: 'ليس لديك صلاحية لاستخدام التحليل.', icon: '!' },
     subscription_expired: { label: 'انتهى الاشتراك', detail: 'يتطلب التحليل اشتراكًا فعالًا.', icon: '!' },
@@ -118,6 +118,25 @@
 
     window.__lastChart = { candles: data.chart || [], markers: { entry: data.entry, target: data.target, stop: data.stop_loss } };
     drawChart(window.__lastChart.candles, window.__lastChart.markers);
+  }
+
+  // Clear a previous result so an error for one symbol is never shown next to
+  // the prices/decision of another symbol.
+  function clearResult(symbol) {
+    el('result-title').textContent = 'نتيجة تحليل السوق';
+    el('result-subtitle').textContent = symbol ? `${symbol} — لا توجد نتيجة.` : 'لا توجد نتيجة.';
+    el('direction').textContent = '—';
+    el('direction-symbol').textContent = symbol || '—';
+    el('direction-card').dataset.direction = '';
+    el('confidence').textContent = '—';
+    el('confidence-label').textContent = '—';
+    el('selected-strategy').textContent = '—';
+    el('selected-variant').textContent = '—';
+    ['entry', 'target', 'stop-loss', 'lot'].forEach((id) => { el(id).textContent = '—'; });
+    el('comparison-body').innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
+    el('capital-impact').hidden = true;
+    window.__lastChart = { candles: [], markers: {} };
+    drawChart([], {});
   }
 
   function drawChart(candles, markers) {
@@ -423,8 +442,11 @@
       const data = await response.json();
       if (!response.ok) {
         const code = data?.detail?.code || 'api_error';
-        const mapped = { data_unavailable: 'data_unavailable', subscription_expired: 'subscription_expired', unauthorized: 'unauthorized', session_expired: 'session_expired' }[code] || 'api_error';
-        setState(mapped, data?.detail?.message || null);
+        // Live provider failures (live_* / provider_*) are data availability problems.
+        const liveDataError = code.startsWith('live_') || code.startsWith('provider_');
+        const mapped = liveDataError ? 'data_unavailable' : ({ data_unavailable: 'data_unavailable', subscription_expired: 'subscription_expired', unauthorized: 'unauthorized', session_expired: 'session_expired' }[code] || 'api_error');
+        clearResult(el('symbol').value);
+        setState(mapped, liveDataError ? `${states.data_unavailable.detail} (${code})` : (data?.detail?.message || null));
         if (code === 'session_expired' || code === 'unauthorized') await refreshMe();
         return;
       }

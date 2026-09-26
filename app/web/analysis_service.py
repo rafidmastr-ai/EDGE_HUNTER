@@ -1,4 +1,12 @@
-"""Real local-OHLC analysis service backing the Phase 09 web UI."""
+"""Market analysis service backing the web UI.
+
+Data sources:
+- ``live`` (default): OHLC comes exclusively from the configured live provider
+  (Twelve Data). Local CSV files are never read in this mode; a provider failure
+  is reported as ``LiveDataUnavailableError`` instead of silently switching data.
+- ``local``: explicit offline mode that reads ``data/raw/*.csv``. Those CSVs exist
+  for backtesting/learning and deterministic tests, not as a live data source.
+"""
 
 from __future__ import annotations
 
@@ -63,7 +71,7 @@ class SymbolDataset:
 
 
 class LocalOHLCAnalysisService:
-    """Load local CSVs, resample OHLC and call the Phase 08 signal engine."""
+    """Load OHLC (live provider or explicit local CSV mode) and call the signal engine."""
 
     def __init__(
         self,
@@ -72,7 +80,6 @@ class LocalOHLCAnalysisService:
         live_provider: LiveMarketDataProvider | None = None,
         data_mode: str = "local",
         live_history_bars: int = 800,
-        live_fallback_to_local: bool = True,
     ) -> None:
         self.project_root = Path(__file__).resolve().parents[2]
         self.data_root = data_root or (self.project_root / "data" / "raw")
@@ -81,7 +88,6 @@ class LocalOHLCAnalysisService:
         self.live_provider = live_provider
         self.data_mode = data_mode if data_mode in {"local", "live"} else "local"
         self.live_history_bars = max(50, min(int(live_history_bars), 5000))
-        self.live_fallback_to_local = bool(live_fallback_to_local)
         self._dataset_cache: dict[str, SymbolDataset] = {}
 
     def analyze(self, request: AnalyzeRequest) -> dict:
@@ -92,18 +98,17 @@ class LocalOHLCAnalysisService:
 
         for timeframe in ANALYSIS_TIMEFRAMES:
             if self.data_mode == "live":
+                # Live analysis uses provider data only. There is deliberately no
+                # CSV fallback: mixing sources would present stale/local prices
+                # as live and hide the real provider error.
                 try:
                     bars = self._load_live_bars(request.symbol, timeframe)
                     live_source_used = True
                 except LiveProviderError as exc:
-                    if not self.live_fallback_to_local:
-                        raise LiveDataUnavailableError(
-                            "live market data is currently unavailable",
-                            code=exc.code,
-                        ) from exc
-                    if dataset is None:
-                        dataset = self._load_dataset(request.symbol)
-                    bars = self._resample(dataset.bars, timeframe)
+                    raise LiveDataUnavailableError(
+                        "live market data is currently unavailable",
+                        code=exc.code,
+                    ) from exc
             else:
                 assert dataset is not None
                 bars = self._resample(dataset.bars, timeframe)
@@ -116,6 +121,11 @@ class LocalOHLCAnalysisService:
             timeframe_bars[timeframe] = bars
 
         if not timeframe_results:
+            if self.data_mode == "live":
+                raise LiveDataUnavailableError(
+                    f"insufficient live market data for {request.symbol} in required analysis timeframes",
+                    code="live_insufficient_data",
+                )
             raise DataUnavailableError(
                 f"insufficient historical data for {request.symbol} in required analysis timeframes"
             )
@@ -155,7 +165,8 @@ class LocalOHLCAnalysisService:
                     **dict(decision.metadata),
                     "data_source": (self.live_provider.name if live_source_used and self.live_provider else "local_csv"),
                     "data_mode": self.data_mode,
-                    "data_fallback_used": self.data_mode == "live" and not live_source_used,
+                    # Kept for response compatibility; live mode never falls back.
+                    "data_fallback_used": False,
                     "data_window_bars": len(dataset.bars) if dataset is not None else sum(len(items) for items in timeframe_bars.values()),
                     "multitimeframe_selection": "deterministic_agreement_then_confidence",
                     "timeframe_results": {
@@ -387,6 +398,35 @@ class LocalOHLCAnalysisService:
             "variant": decision.selected_variant,
         }
         return representative
+
+
+def _floor_timeframe(value: datetime, minutes: int) -> datetime:
+    """Start of the UTC bucket of ``minutes`` length that contains ``value``."""
+    epoch_minute = int(value.astimezone(timezone.utc).timestamp() // 60)
+    return datetime.fromtimestamp((epoch_minute - epoch_minute % minutes) * 60, tz=timezone.utc)
+
+
+def _split_symbol(symbol: str) -> tuple[str, str]:
+    text = symbol.upper().replace(" ", "")
+    if "/" in text:
+        base, _, quote = text.partition("/")
+        return base, quote
+    return text[:3], text[3:]
+
+
+def _contract_size_for_symbol(symbol: str) -> float:
+    """Units per 1.00 lot, used only for transparent lot/P&L arithmetic.
+
+    Metals use their common spot contract (oz), Forex the standard 100,000
+    units lot, and crypto/other instruments are quoted per 1 unit of the base.
+    """
+    base, quote = _split_symbol(symbol)
+    metal_contracts = {"XAU": 100.0, "XAG": 5000.0, "XPT": 100.0, "XPD": 100.0}
+    if base in METAL_CODES:
+        return metal_contracts[base]
+    if base in FOREX_CODES and quote in FOREX_CODES:
+        return 100_000.0
+    return 1.0
 
 
 def _parse_timestamp(value: str) -> datetime:

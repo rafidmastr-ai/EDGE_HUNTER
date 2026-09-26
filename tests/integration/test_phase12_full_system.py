@@ -38,6 +38,8 @@ class Phase12FullSystemIntegrationTests(unittest.TestCase):
             cookie_secure=False,
             docs_enabled=True,
             environment="test",
+            data_mode="local",
+            live_provider_enabled=False,
             debug=False,
             trust_proxy_headers=False,
             max_request_bytes=65_536,

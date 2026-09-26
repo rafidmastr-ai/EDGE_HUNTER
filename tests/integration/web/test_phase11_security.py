@@ -43,6 +43,8 @@ class Phase11SecurityIntegrationTests(unittest.TestCase):
             max_request_bytes=256,
             docs_enabled=False,
             environment="production",
+            data_mode="local",
+            live_provider_enabled=False,
             debug=False,
             trust_proxy_headers=False,
             log_dir=root / "logs",

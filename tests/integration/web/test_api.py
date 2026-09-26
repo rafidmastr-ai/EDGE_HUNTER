@@ -30,7 +30,7 @@ class WebAPIIntegrationTests(unittest.TestCase):
                 lo = min(op, cl) - 0.45
                 handle.write(f"{ts.isoformat()},{op},{hi},{lo},{cl}\n")
                 price = cl
-        settings = replace(load_settings(), database_path=root / "edge.db", password_iterations=100_000, cookie_secure=False)
+        settings = replace(load_settings(), database_path=root / "edge.db", password_iterations=100_000, cookie_secure=False, data_mode="local", live_provider_enabled=False)
         self.database = Database(settings.database_path)
         self.client = TestClient(create_web_app(root, database=self.database, settings=settings))
         self.csrf = self.client.get("/api/auth/csrf").json()["csrf_token"]
@@ -48,7 +48,7 @@ class WebAPIIntegrationTests(unittest.TestCase):
 
     def test_public_auth_status_bootstrap_does_not_require_login(self) -> None:
         other_settings = load_settings()
-        other_settings = replace(other_settings, database_path=Path(self.tmp.name) / "status.db", cookie_secure=False)
+        other_settings = replace(other_settings, database_path=Path(self.tmp.name) / "status.db", cookie_secure=False, data_mode="local", live_provider_enabled=False)
         other_db = Database(other_settings.database_path)
         try:
             anonymous = TestClient(create_web_app(Path(self.tmp.name), database=other_db, settings=other_settings))
@@ -125,7 +125,7 @@ class WebAPIIntegrationTests(unittest.TestCase):
 
     def test_analysis_requires_authentication(self) -> None:
         other_settings = load_settings()
-        other_settings = replace(other_settings, database_path=Path(self.tmp.name) / "other.db", cookie_secure=False)
+        other_settings = replace(other_settings, database_path=Path(self.tmp.name) / "other.db", cookie_secure=False, data_mode="local", live_provider_enabled=False)
         other_db = Database(other_settings.database_path)
         try:
             anonymous = TestClient(create_web_app(Path(self.tmp.name), database=other_db, settings=other_settings))

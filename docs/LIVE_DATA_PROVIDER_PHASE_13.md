@@ -42,7 +42,7 @@ EDGE_HUNTER_LIVE_PROVIDER_MAX_BARS=800
 EDGE_HUNTER_LIVE_PROVIDER_RATE_LIMIT_PER_MINUTE=8
 ```
 
-`XAUUSD` and `EURUSD` are translated internally to `XAU/USD` and `EUR/USD` for Twelve Data. Provider-specific symbols never enter the strategy layer.
+Compact symbols are translated internally to Twelve Data's `BASE/QUOTE` form for Forex, Metals and Crypto (`XAUUSD` → `XAU/USD`, `GBPUSD` → `GBP/USD`, `BTCUSD` → `BTC/USD`, `ETHUSDT` → `ETH/USDT`); symbols already in `BASE/QUOTE` form (as returned by the symbol catalog) are sent unchanged. Provider-specific symbols never enter the strategy layer.
 
 ## Runtime behavior
 
@@ -56,7 +56,7 @@ EDGE_HUNTER_LIVE_PROVIDER_RATE_LIMIT_PER_MINUTE=8
 - Provider `401/403` responses are not retried.
 - Short-lived in-memory caching reduces repeated requests.
 - A controlled `503` is returned when live data is required and unavailable.
-- In development/test, `EDGE_HUNTER_LIVE_FALLBACK_TO_LOCAL=true` may fall back to local CSV. Production analysis disables this fallback so stale historical data cannot silently masquerade as live data.
+- Live analysis (`EDGE_HUNTER_DATA_MODE=live`, the default) never falls back to local CSV, in any environment. Local CSV files are for backtesting/learning only; `EDGE_HUNTER_DATA_MODE=local` is an explicit offline mode. The former `EDGE_HUNTER_LIVE_FALLBACK_TO_LOCAL` setting was removed.
 
 ## Health
 

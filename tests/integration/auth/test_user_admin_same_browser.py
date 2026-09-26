@@ -44,6 +44,8 @@ class UserAdminSameBrowserTests(unittest.TestCase):
             login_rate_limit=50,
             rate_limit_window_seconds=300,
             cookie_secure=False,
+            data_mode="local",
+            live_provider_enabled=False,
         )
         self.database = Database(self.settings.database_path)
         self.app = create_web_app(self.data_root, database=self.database, settings=self.settings)

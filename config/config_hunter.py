@@ -82,7 +82,6 @@ class Settings:
     symbol_catalog_cache_ttl_seconds: int
     symbol_search_limit: int
     data_mode: str
-    live_fallback_to_local: bool
     whatsapp_url: str | None
     admin_username: str | None
     session_ttl_hours: int
@@ -136,7 +135,9 @@ def load_settings() -> Settings:
         raise ValueError("wildcard CORS origins are not allowed; use explicit origins")
     if environment == "production" and not raw_allowed_hosts:
         raise ValueError("EDGE_HUNTER_ALLOWED_HOSTS must be explicitly configured in production")
-    data_mode = os.getenv("EDGE_HUNTER_DATA_MODE", "local").strip().lower()
+    # Live analysis is the default: OHLC comes from the live provider only.
+    # "local" is an explicit offline mode (CSV files kept for backtest/learning).
+    data_mode = os.getenv("EDGE_HUNTER_DATA_MODE", "live").strip().lower()
     if data_mode not in {"local", "live"}:
         raise ValueError("EDGE_HUNTER_DATA_MODE must be 'local' or 'live'")
     live_provider_name = os.getenv("EDGE_HUNTER_LIVE_PROVIDER", "none").strip().lower()
@@ -159,7 +160,7 @@ def load_settings() -> Settings:
         live_provider_url=(
             os.getenv("EDGE_HUNTER_LIVE_PROVIDER_URL")
             if _env_bool("EDGE_HUNTER_LIVE_PROVIDER_ENABLED", False)
-            or os.getenv("EDGE_HUNTER_DATA_MODE", "local").strip().lower() == "live"
+            or data_mode == "live"
             else None
         ),
         live_provider_api_key=os.getenv("EDGE_HUNTER_LIVE_PROVIDER_API_KEY"),
@@ -171,8 +172,7 @@ def load_settings() -> Settings:
         live_provider_rate_limit_per_minute=_env_int("EDGE_HUNTER_LIVE_PROVIDER_RATE_LIMIT_PER_MINUTE", 8, 1, 500),
         symbol_catalog_cache_ttl_seconds=_env_int("EDGE_HUNTER_SYMBOL_CATALOG_CACHE_TTL_SECONDS", 86400, 300, 604800),
         symbol_search_limit=_env_int("EDGE_HUNTER_SYMBOL_SEARCH_LIMIT", 20, 5, 50),
-        data_mode=os.getenv("EDGE_HUNTER_DATA_MODE", "local").strip().lower(),
-        live_fallback_to_local=_env_bool("EDGE_HUNTER_LIVE_FALLBACK_TO_LOCAL", True),
+        data_mode=data_mode,
         whatsapp_url=os.getenv("EDGE_HUNTER_WHATSAPP_URL"),
         admin_username=os.getenv("EDGE_HUNTER_ADMIN_USERNAME"),
         session_ttl_hours=_env_int("EDGE_HUNTER_SESSION_TTL_HOURS", 24, 1, 168),

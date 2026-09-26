@@ -170,7 +170,6 @@ def create_web_app(
         live_provider=live_provider,
         data_mode=settings.data_mode,
         live_history_bars=settings.live_provider_max_bars,
-        live_fallback_to_local=settings.live_fallback_to_local and settings.environment != "production",
     )
     app.state.analysis_service = service
     static_dir = Path(__file__).resolve().parent / "static"
@@ -213,7 +212,8 @@ def create_web_app(
         """Return safe live-provider health without secrets or upstream payloads."""
         health_payload = service.live_health()
         health_payload["data_mode"] = settings.data_mode
-        health_payload["fallback_to_local"] = service.live_fallback_to_local
+        # Live analysis never falls back to local CSV data.
+        health_payload["fallback_to_local"] = False
         return health_payload
 
     @app.get("/api/meta")

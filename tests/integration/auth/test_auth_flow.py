@@ -31,6 +31,8 @@ class AuthFlowTests(unittest.TestCase):
             login_rate_limit=5,
             rate_limit_window_seconds=300,
             cookie_secure=False,
+            data_mode="local",
+            live_provider_enabled=False,
         )
         self.database = Database(settings.database_path)
         self.client = TestClient(create_web_app(self.data_root, database=self.database, settings=settings))
@@ -90,7 +92,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def _admin_login(self) -> str:
         self._create_admin()
-        admin_client = TestClient(create_web_app(self.data_root, database=self.database, settings=replace(load_settings(), database_path=self.database.path, password_iterations=100_000, session_ttl_hours=1, cookie_secure=False)))
+        admin_client = TestClient(create_web_app(self.data_root, database=self.database, settings=replace(load_settings(), database_path=self.database.path, password_iterations=100_000, session_ttl_hours=1, cookie_secure=False, data_mode="local", live_provider_enabled=False)))
         boot = admin_client.get("/api/auth/csrf").json()["csrf_token"]
         response = admin_client.post(
             "/api/admin/login",
@@ -183,7 +185,7 @@ class AuthFlowTests(unittest.TestCase):
 
     def test_device_binding_rejects_second_device(self) -> None:
         self._register()
-        second = TestClient(create_web_app(self.data_root, database=self.database, settings=replace(load_settings(), database_path=self.database.path, password_iterations=100_000, session_ttl_hours=1, cookie_secure=False)))
+        second = TestClient(create_web_app(self.data_root, database=self.database, settings=replace(load_settings(), database_path=self.database.path, password_iterations=100_000, session_ttl_hours=1, cookie_secure=False, data_mode="local", live_provider_enabled=False)))
         boot = second.get("/api/auth/csrf").json()["csrf_token"]
         response = second.post(
             "/api/auth/login",

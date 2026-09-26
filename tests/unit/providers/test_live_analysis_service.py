@@ -57,7 +57,6 @@ class LiveAnalysisServiceTests(unittest.TestCase):
                 live_provider=provider,
                 data_mode="live",
                 live_history_bars=420,
-                live_fallback_to_local=False,
             )
             result = service.analyze(AnalyzeRequest(symbol="XAUUSD", risk_percent=1.0, lot_mode="auto"))
             self.assertEqual(result["metadata"]["data_source"], "mock-live")

@@ -26,7 +26,6 @@ class LiveProviderApiIntegrationTests(unittest.TestCase):
             live_provider_enabled=False,
             live_provider_name="none",
             data_mode="live",
-            live_fallback_to_local=False,
             log_dir=root / "logs",
         )
         self.db = Database(settings.database_path)

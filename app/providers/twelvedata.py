@@ -36,6 +36,33 @@ SYMBOL_MAP = {
     "XAUUSD": "XAU/USD",
 }
 
+# Quote currencies recognised when a compact symbol (e.g. ``BTCUSD``) has to be
+# split into Twelve Data's ``BASE/QUOTE`` form. Longest suffixes first.
+QUOTE_CURRENCIES = (
+    "USDT", "USDC", "BUSD",
+    "USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "NZD", "SGD", "HKD",
+    "NOK", "SEK", "DKK", "PLN", "TRY", "ZAR", "MXN", "CNH", "CNY",
+    "BTC", "ETH",
+)
+
+
+def to_provider_symbol(symbol: str) -> str:
+    """Return Twelve Data's ``BASE/QUOTE`` symbol for Forex, Metals and Crypto.
+
+    ``BTC/USD`` is already provider form; ``BTCUSD``/``GBPUSD``/``ETHUSDT`` are
+    split on a known quote currency. Anything else is passed through unchanged.
+    """
+    key = symbol.upper().strip().replace(" ", "")
+    if "/" in key:
+        return key
+    if key in SYMBOL_MAP:
+        return SYMBOL_MAP[key]
+    for quote in QUOTE_CURRENCIES:
+        base = key[: -len(quote)]
+        if key.endswith(quote) and len(base) >= 2:
+            return f"{base}/{quote}"
+    return key
+
 MAX_PROVIDER_POINTS = 5000
 DEFAULT_MAX_BARS = 1000
 
@@ -120,8 +147,8 @@ class TwelveDataLiveProvider:
                 code="live_timeframe_unsupported",
                 status_code=422,
             )
-        symbol_key = symbol.upper().strip()
-        provider_symbol = SYMBOL_MAP.get(symbol_key, symbol_key)
+        provider_symbol = to_provider_symbol(symbol)
+        symbol_key = provider_symbol
         start_utc = _as_utc(start)
         end_utc = _as_utc(end)
         if start_utc > end_utc:
