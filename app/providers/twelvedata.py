@@ -85,7 +85,11 @@ class TwelveDataLiveProvider:
         rate_limit_per_minute: int = 8,
         transport: Callable[..., bytes] | None = None,
     ) -> None:
-        self._api_key = (api_key or "").strip()
+        # A key must be sendable in the Authorization header (printable ASCII,
+        # no spaces). Placeholders such as "ضع المفتاح هنا" are treated as
+        # "not configured" instead of failing later with an encoding error.
+        key = (api_key or "").strip()
+        self._api_key = key if _is_usable_api_key(key) else ""
         self._base_url = base_url.rstrip("/")
         self._timeout = max(1.0, float(timeout_seconds))
         self._max_retries = max(0, int(max_retries))
@@ -113,6 +117,8 @@ class TwelveDataLiveProvider:
         status = "healthy" if self.configured and self._consecutive_failures == 0 and self._last_success_at else (
             "degraded" if self.configured and self._last_success_at else
             "unavailable" if self.configured and self._last_failure_at else
+            # Configured with a key but no request made yet.
+            "ready" if self.configured else
             "unconfigured"
         )
         return LiveProviderHealth(
@@ -412,6 +418,10 @@ class TwelveDataLiveProvider:
         self._last_failure_at = datetime.now(timezone.utc)
         self._consecutive_failures += 1
         self._last_error_code = code
+
+
+def _is_usable_api_key(value: str) -> bool:
+    return bool(value) and value.isascii() and value.isprintable() and " " not in value
 
 
 def _as_utc(value: datetime) -> datetime:

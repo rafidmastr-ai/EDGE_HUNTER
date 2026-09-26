@@ -58,6 +58,26 @@ class TwelveDataProviderTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "live_provider_unconfigured")
         self.assertFalse(provider.health().configured)
 
+    def test_placeholder_or_non_ascii_key_is_treated_as_unconfigured(self):
+        for placeholder in ("ضع المفتاح هنا", "  ", "key with spaces"):
+            transport = FakeTransport(sample_payload())
+            provider = TwelveDataLiveProvider(api_key=placeholder, transport=transport)
+            self.assertFalse(provider.configured, placeholder)
+            with self.assertRaises(LiveProviderError) as raised:
+                provider.get_ohlc(
+                    "BTC/USD",
+                    "M5",
+                    datetime(2026, 9, 24, tzinfo=timezone.utc),
+                    datetime(2026, 9, 25, tzinfo=timezone.utc),
+                )
+            self.assertEqual(raised.exception.code, "live_provider_unconfigured")
+            self.assertEqual(transport.calls, 0)
+
+    def test_configured_provider_reports_ready_before_first_request(self):
+        provider = TwelveDataLiveProvider(api_key="secret", transport=FakeTransport(sample_payload()))
+        self.assertEqual(provider.health().status, "ready")
+        self.assertEqual(TwelveDataLiveProvider(api_key=None).health().status, "unconfigured")
+
     def test_maps_symbol_interval_and_normalizes_response(self):
         transport = FakeTransport(sample_payload())
         provider = TwelveDataLiveProvider(api_key="secret-value", transport=transport, cache_ttl_seconds=0)
