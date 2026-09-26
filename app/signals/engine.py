@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from app.signals.config import ConfidenceConfig
 from app.signals.models import FinalSignalDecision, FinalSignalDirection, StrategyEvaluation
@@ -13,12 +13,43 @@ from app.strategies.models import SignalDirection, SignalState, StrategyContext,
 from app.strategies.registry import StrategyRegistry
 
 
+class SignalFilter(Protocol):
+    """Optional post-strategy filter, e.g. the learned per-strategy models.
+
+    It receives every strategy output for one decision context and returns the
+    same number of outputs; it may only withhold setups (turn them into
+    NO_SIGNAL) or annotate them, never invent new trade prices.
+    """
+
+    def apply(self, signals: Sequence[StrategySignal], context: StrategyContext) -> tuple[StrategySignal, ...]:
+        ...
+
+
 @dataclass(frozen=True)
 class SignalConfidenceEngine:
     """Run all registered strategies and convert their outputs into one decision."""
 
     registry: StrategyRegistry
     config: ConfidenceConfig = ConfidenceConfig()
+    signal_filter: SignalFilter | None = None
+
+    def evaluate_signals(self, context: StrategyContext) -> tuple[tuple[StrategySignal, ...], tuple[StrategySignal, ...]]:
+        """Return (raw strategy outputs, outputs after the optional filter)."""
+        raw = self.registry.evaluate_all(context)
+        if self.signal_filter is None:
+            return raw, raw
+        filtered = tuple(self.signal_filter.apply(raw, context))
+        if len(filtered) != len(raw) or any(
+            item.state == SignalState.SIGNAL
+            and (
+                original.state != SignalState.SIGNAL
+                or (item.direction, item.entry, item.stop_loss, item.target, item.risk_reward)
+                != (original.direction, original.entry, original.stop_loss, original.target, original.risk_reward)
+            )
+            for original, item in zip(raw, filtered)
+        ):
+            raise ValueError("signal filter may only withhold or annotate strategy outputs")
+        return raw, filtered
 
     def analyze(
         self,
@@ -26,7 +57,16 @@ class SignalConfidenceEngine:
         validated_evidence: Mapping[str, EvidenceOverrides] | None = None,
     ) -> FinalSignalDecision:
         """Run every registered strategy using the supplied decision-time context."""
-        signals = self.registry.evaluate_all(context)
+        _, signals = self.evaluate_signals(context)
+        return self.decide(context, signals, validated_evidence)
+
+    def decide(
+        self,
+        context: StrategyContext,
+        signals: Sequence[StrategySignal],
+        validated_evidence: Mapping[str, EvidenceOverrides] | None = None,
+    ) -> FinalSignalDecision:
+        """Aggregate already evaluated strategy outputs for one decision context."""
         evidence_map = validated_evidence or {}
         return self.aggregate(
             signals=signals,

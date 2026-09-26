@@ -41,10 +41,20 @@ def normalize_row(row: Mapping[str, str]) -> CanonicalOHLC:
         raise ValueError("Missing timestamp column")
 
     timestamp_text = str(raw_timestamp).strip().replace("Z", "+00:00")
-    try:
-        timestamp = datetime.fromisoformat(timestamp_text)
-    except ValueError:
-        raise ValueError(f"Invalid timestamp: {raw_timestamp!r}") from None
+    if timestamp_text.isdigit():
+        # Unix epoch in milliseconds (e.g. XAUUSD exports) or seconds.
+        number = int(timestamp_text)
+        if number > 10_000_000_000:
+            timestamp = datetime.fromtimestamp(number / 1000.0, tz=timezone.utc)
+        elif number > 1_000_000_000:
+            timestamp = datetime.fromtimestamp(number, tz=timezone.utc)
+        else:
+            raise ValueError(f"Invalid timestamp: {raw_timestamp!r}")
+    else:
+        try:
+            timestamp = datetime.fromisoformat(timestamp_text)
+        except ValueError:
+            raise ValueError(f"Invalid timestamp: {raw_timestamp!r}") from None
 
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)

@@ -198,6 +198,7 @@ class LiveAnalysisApiTests(unittest.TestCase):
             live_provider_cache_ttl_seconds=0.0,
             live_provider_max_bars=420,
             live_provider_rate_limit_per_minute=50,
+            strategy_ml_model_path=root / "models" / "strategy_learning.json",
         )
         self.database = Database(self.settings.database_path)
         self.app = create_web_app(self.data_root, database=self.database, settings=self.settings)
@@ -255,6 +256,42 @@ class LiveAnalysisApiTests(unittest.TestCase):
         health = self.client.get("/api/live-health").json()
         self.assertFalse(health["fallback_to_local"])
         self.assertNotIn("test-key-not-real", json.dumps(health))
+
+    def test_strategy_setups_are_recorded_for_learning_after_the_response(self) -> None:
+        from app.signals.engine import SignalConfidenceEngine
+        from app.strategies.models import SignalDirection, SignalState, StrategySignal
+        from app.strategies.registry import StrategyRegistry
+
+        class AlwaysBuy:
+            name = "Classic"
+            variant = "Classic_V1"
+
+            def generate(self, context):
+                close = float(context.bars[-1].close)
+                return StrategySignal(
+                    timestamp=context.current.timestamp, symbol=context.symbol, timeframe=context.timeframe,
+                    direction=SignalDirection.BUY, state=SignalState.SIGNAL, entry=close, stop_loss=close * 0.99,
+                    target=close * 1.0175, risk_reward=1.75, entry_logic="t", invalidation="t", stop_loss_logic="t",
+                    target_logic="t", evidence=("always",), strategy_name=self.name, variant=self.variant,
+                )
+
+        service = self.app.state.analysis_service
+        service.signal_engine = SignalConfidenceEngine(StrategyRegistry((AlwaysBuy(),)), signal_filter=service.signal_filter)
+        self.provider._transport = FakeTwelveDataTransport()
+        response = self._analyze("BTC/USD")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("strategy_learning", response.json()["metadata"])
+        rows = self.database.execute(
+            "SELECT symbol, timeframe, strategy_name, source_type, status FROM learning_records ORDER BY timeframe"
+        ).fetchall()
+        self.assertEqual([tuple(row) for row in rows], [
+            ("BTC/USD", "H1", "Classic", "LIVE_TRADE", "PENDING_OUTCOME"),
+            ("BTC/USD", "M15", "Classic", "LIVE_TRADE", "PENDING_OUTCOME"),
+            ("BTC/USD", "M5", "Classic", "LIVE_TRADE", "PENDING_OUTCOME"),
+        ])
+        # Re-analysing the same closed candles does not duplicate the records.
+        self._analyze("BTC/USD")
+        self.assertEqual(self.database.execute("SELECT COUNT(*) FROM learning_records").fetchone()[0], 3)
 
     def test_btc_without_any_local_csv_is_not_a_csv_error(self) -> None:
         self.provider._transport = FakeTwelveDataTransport()

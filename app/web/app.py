@@ -13,7 +13,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -28,6 +28,7 @@ from app.auth.schemas import LoginRequest, RedeemCodeRequest, RegisterRequest
 from app.auth.service import AuthError, AuthService
 from app.db.database import Database
 from app.db.migrations import MigrationRunner
+from app.learning.strategy_learning import LiveSignalRecorder, StrategyLearningFilter
 from app.web.analysis_service import DataUnavailableError, LiveDataUnavailableError, LocalOHLCAnalysisService
 from app.web.admin_code_diagnostics import save_admin_code_generation_diagnostic
 from app.web.schemas import AnalysisResponse, AnalyzeRequest, DEFAULT_SYMBOLS, RISK_PRESETS
@@ -165,13 +166,22 @@ def create_web_app(
         safe_detail.setdefault("request_id", getattr(request.state, "request_id", None))
         return JSONResponse(status_code=exc.status_code, content={"detail": safe_detail})
 
+    # Learned per-strategy filters (read-only; trained by scripts/train_strategies.py)
+    # and the post-response recorder that feeds live setups back into training.
+    strategy_filter = StrategyLearningFilter(settings.strategy_ml_model_path, enabled=settings.strategy_ml_enabled)
+    live_signal_recorder = LiveSignalRecorder(database, enabled=settings.strategy_ml_record_live)
     service = LocalOHLCAnalysisService(
         data_root=data_root,
         live_provider=live_provider,
         data_mode=settings.data_mode,
         live_history_bars=settings.live_provider_max_bars,
+        # Learned filters apply to live analysis only; "local" is the explicit
+        # offline/test mode and stays independent of locally trained model files.
+        signal_filter=strategy_filter if settings.data_mode == "live" else None,
     )
     app.state.analysis_service = service
+    app.state.strategy_filter = strategy_filter
+    app.state.live_signal_recorder = live_signal_recorder
     static_dir = Path(__file__).resolve().parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -232,6 +242,7 @@ def create_web_app(
             "whatsapp_url": settings.whatsapp_url,
             "data_mode": settings.data_mode,
             "live_provider": service.live_health(),
+            "strategy_learning": service.strategy_learning_status(),
         }
 
     @app.get("/api/symbols/search")
@@ -399,11 +410,16 @@ def create_web_app(
         }
 
     @app.post("/api/analyze", response_model=AnalysisResponse)
-    async def analyze(payload: AnalyzeRequest, request: Request) -> dict:
+    async def analyze(payload: AnalyzeRequest, request: Request, background_tasks: BackgroundTasks) -> dict:
         _user_csrf_session(request, auth)
         auth.require_analysis_access(request.cookies.get(SESSION_COOKIE), expected_scope=USER_SCOPE)
         try:
-            return service.analyze(payload)
+            result, observations = service.analyze_with_observations(payload)
+            if observations and settings.data_mode == "live":
+                # Runs after the response is sent: storing setups for later outcome
+                # labelling never delays the recommendation shown to the user.
+                background_tasks.add_task(live_signal_recorder.record, payload.symbol, observations)
+            return result
         except LiveDataUnavailableError as exc:
             raise HTTPException(
                 status_code=503,

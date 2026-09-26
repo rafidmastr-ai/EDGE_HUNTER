@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import csv
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -22,9 +22,9 @@ from app.data.schema import CanonicalOHLC
 from app.providers.live_provider import LiveMarketDataProvider
 from app.providers.models import LiveProviderError
 from app.features.engine import FeatureEngine
-from app.signals.engine import SignalConfidenceEngine
+from app.signals.engine import SignalConfidenceEngine, SignalFilter
 from app.signals.models import FinalSignalDecision
-from app.strategies.models import StrategyContext
+from app.strategies.models import SignalState, StrategyContext, StrategySignal
 from app.strategies.registry import StrategyRegistry
 from app.web.schemas import AnalyzeRequest, CapitalImpact, MarketCandle
 
@@ -80,17 +80,33 @@ class LocalOHLCAnalysisService:
         live_provider: LiveMarketDataProvider | None = None,
         data_mode: str = "local",
         live_history_bars: int = 800,
+        signal_filter: SignalFilter | None = None,
     ) -> None:
         self.project_root = Path(__file__).resolve().parents[2]
         self.data_root = data_root or (self.project_root / "data" / "raw")
         self.feature_engine = FeatureEngine()
-        self.signal_engine = SignalConfidenceEngine(StrategyRegistry.default())
+        # Optional learned per-strategy filter (read-only inference of approved models).
+        self.signal_filter = signal_filter
+        self.signal_engine = SignalConfidenceEngine(StrategyRegistry.default(), signal_filter=signal_filter)
         self.live_provider = live_provider
         self.data_mode = data_mode if data_mode in {"local", "live"} else "local"
         self.live_history_bars = max(50, min(int(live_history_bars), 5000))
         self._dataset_cache: dict[str, SymbolDataset] = {}
 
     def analyze(self, request: AnalyzeRequest) -> dict:
+        return self.analyze_with_observations(request)[0]
+
+    def analyze_with_observations(
+        self,
+        request: AnalyzeRequest,
+    ) -> tuple[dict, list[tuple[str, StrategySignal, dict]]]:
+        """Return the analysis plus the actionable strategy setups it observed.
+
+        Observations are (timeframe, raw strategy setup annotated with the learned
+        probability, decision-time feature values). The web layer stores them
+        only after the response has been sent, for later outcome labelling.
+        """
+        observations: list[tuple[str, StrategySignal, dict]] = []
         dataset = self._load_dataset(request.symbol) if self.data_mode == "local" else None
         live_source_used = False
         timeframe_results: dict[str, FinalSignalDecision] = {}
@@ -117,8 +133,15 @@ class LocalOHLCAnalysisService:
             symbol_name = request.symbol.upper()
             analysis = self.feature_engine.compute(bars, symbol_name, timeframe)
             context = StrategyContext.from_series(bars, analysis)
-            timeframe_results[timeframe] = self.signal_engine.analyze(context)
+            raw_signals, signals = self.signal_engine.evaluate_signals(context)
+            timeframe_results[timeframe] = self.signal_engine.decide(context, signals)
             timeframe_bars[timeframe] = bars
+            for raw, final in zip(raw_signals, signals):
+                if raw.state != SignalState.SIGNAL:
+                    continue
+                learned = {key: value for key, value in dict(final.metadata).items() if str(key).startswith("ml_")}
+                annotated = replace(raw, metadata={**dict(raw.metadata), **learned}) if learned else raw
+                observations.append((timeframe, annotated, dict(context.current.values)))
 
         if not timeframe_results:
             if self.data_mode == "live":
@@ -178,10 +201,17 @@ class LocalOHLCAnalysisService:
                     },
                     "financial_values_hidden_without_capital": request.capital is None,
                     "live_provider_health": self.live_health(),
+                    "strategy_learning": self.strategy_learning_status(),
                 },
             }
         )
-        return response
+        return response, observations
+
+    def strategy_learning_status(self) -> dict:
+        status = getattr(self.signal_filter, "status", None)
+        if not callable(status):
+            return {"enabled": False, "model_loaded": False, "active_strategies": []}
+        return status()
 
     def _load_live_bars(self, symbol: str, timeframe: str) -> list[CanonicalOHLC]:
         if self.live_provider is None:

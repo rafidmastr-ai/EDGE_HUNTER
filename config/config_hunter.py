@@ -109,6 +109,12 @@ class Settings:
     learning_minimum_monitoring_sample: int
     learning_drift_threshold: float
     learning_rollback_grace_period_seconds: int
+    # Per-strategy machine learning (Classic/SMC/ICT). Models are produced only by
+    # scripts/train_strategies.py and applied read-only by the web analysis.
+    strategy_ml_enabled: bool = True
+    strategy_ml_model_path: Path = PROJECT_ROOT / "data" / "models" / "strategy_learning.json"
+    strategy_ml_record_live: bool = True
+    strategy_ml_horizon_bars: int = 48
 
 
 def load_settings() -> Settings:
@@ -200,4 +206,13 @@ def load_settings() -> Settings:
         learning_minimum_monitoring_sample=_env_int("EDGE_HUNTER_LEARNING_MINIMUM_MONITORING_SAMPLE", 10, 0, 1_000_000),
         learning_drift_threshold=_env_float("EDGE_HUNTER_LEARNING_DRIFT_THRESHOLD", 0.25, 0.0, 10.0),
         learning_rollback_grace_period_seconds=_env_int("EDGE_HUNTER_LEARNING_ROLLBACK_GRACE_PERIOD_SECONDS", 3600, 0, 31_536_000),
+        strategy_ml_enabled=_env_bool("EDGE_HUNTER_STRATEGY_ML_ENABLED", True),
+        strategy_ml_model_path=Path(
+            os.getenv(
+                "EDGE_HUNTER_STRATEGY_ML_MODEL_PATH",
+                str(PROJECT_ROOT / "data" / "models" / "strategy_learning.json"),
+            )
+        ),
+        strategy_ml_record_live=_env_bool("EDGE_HUNTER_STRATEGY_ML_RECORD_LIVE", True),
+        strategy_ml_horizon_bars=_env_int("EDGE_HUNTER_STRATEGY_ML_HORIZON_BARS", 48, 5, 500),
     )

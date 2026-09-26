@@ -70,6 +70,15 @@ class NormalizerTests(unittest.TestCase):
                 }
             )
 
+    def test_epoch_milliseconds_and_seconds_are_supported(self):
+        row = {"open": "1", "high": "2", "low": "0.5", "close": "1.5"}
+        millis = normalize_row({**row, "timestamp": "1756684800000"})
+        seconds = normalize_row({**row, "timestamp": "1756684800"})
+        self.assertEqual(millis.timestamp.isoformat(), "2025-09-01T00:00:00+00:00")
+        self.assertEqual(seconds.timestamp, millis.timestamp)
+        with self.assertRaisesRegex(ValueError, "Invalid timestamp"):
+            normalize_row({**row, "timestamp": "12345"})
+
 
 if __name__ == "__main__":
     unittest.main()
