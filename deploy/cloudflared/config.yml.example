@@ -1,0 +1,10 @@
+# Copy to a protected cloudflared configuration and replace placeholders.
+# Do not commit tunnel credentials or account secrets.
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\Users\REPLACE_WITH_SERVICE_ACCOUNT\.cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: app.example.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

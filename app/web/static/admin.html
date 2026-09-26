@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#061120">
+  <title>EDGE HUNTER — لوحة الإدارة</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar glass">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">EH</div><div><div class="brand-name">EDGE HUNTER</div><div class="brand-subtitle">لوحة الإدارة — Authentication &amp; Subscriptions</div></div></div>
+      <div class="header-tools"><div class="connection" id="admin-connection"><span class="status-dot"></span><span>الإدارة</span></div><a class="secondary-button" href="/">العودة للتحليل</a></div>
+    </header>
+
+    <main class="admin-grid">
+      <section class="panel glass admin-login-panel" id="admin-login-panel">
+        <div class="section-kicker">Admin</div><h1>دخول الإدارة</h1>
+        <p class="muted">بيانات الإدارة لا تُخزَّن داخل الكود. استخدم الحساب الذي أنشأته عبر <code>scripts/create_admin.py</code>.</p>
+        <form id="admin-login-form" class="auth-form">
+          <label class="field"><span>البريد الإلكتروني</span><input id="admin-email" type="email" required></label>
+          <label class="field"><span>كلمة المرور</span><input id="admin-password" type="password" required minlength="8"></label>
+          <button class="primary-button" type="submit">دخول لوحة الإدارة</button>
+        </form>
+        <div id="admin-login-error" class="access-status" hidden></div>
+      </section>
+
+      <section class="panel glass" id="admin-dashboard" hidden>
+        <div class="result-header"><div><div class="section-kicker">Overview</div><h1>لوحة الإدارة</h1><p class="muted" id="admin-generated">—</p></div><button id="admin-logout" class="secondary-button" type="button">تسجيل الخروج</button></div>
+        <div class="admin-stats" id="admin-stats"></div>
+        <div class="admin-two-col">
+          <div class="admin-card"><div class="card-title">توليد الأكواد</div><form id="code-form" class="redeem-form"><select id="code-duration"><option value="1">شهر واحد</option><option value="3">3 أشهر</option></select><input id="code-quantity" type="number" min="1" max="50" value="1"><button class="primary-button" type="submit">توليد</button></form><pre id="generated-codes" class="code-output" aria-live="polite"></pre></div>
+          <div class="admin-card"><div class="card-title">سجل التدقيق</div><div class="table-scroll"><table><thead><tr><th>الوقت</th><th>الفاعل</th><th>الإجراء</th><th>الهدف</th></tr></thead><tbody id="audit-body"></tbody></table></div></div>
+        </div>
+        <div class="admin-card"><div class="card-title">المستخدمون والاشتراكات</div><div class="table-scroll"><table><thead><tr><th>البريد</th><th>الحالة</th><th>الوصول</th><th>ينتهي</th><th>الجهاز</th><th>إجراءات</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+        <div class="admin-card"><div class="card-title">الأكواد</div><div class="table-scroll"><table><thead><tr><th>آخر 4</th><th>المدة</th><th>الحالة</th><th>المستخدم</th><th>الإجراء</th></tr></thead><tbody id="codes-body"></tbody></table></div></div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/admin.js"></script>
+</body>
+</html>

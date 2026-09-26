@@ -1,0 +1,700 @@
+==============================================================================
+EDGE HUNTER
+PRODUCTION READINESS AUDIT
+==============================================================================
+Audit Tool Version: 1.2.2
+Timestamp Start: 2026-09-26T18:52:30+03:00
+Timestamp End: 2026-09-26T18:59:07+03:00
+Project Root: C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE
+Python Version: 3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]
+Platform: win32
+Mode: READ_ONLY_AUDIT (except report generation and the project's discovered test command)
+
+TEST EXECUTION
+------------------------------------------------------------------------------
+Command: C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\.venv\Scripts\python.exe main.py
+Exit Code: 0
+Duration: 376.604s
+Timed Out: False
+Tests: 647
+Passed: 647
+Failed: 0
+Errors: 0
+Observed test side effects: changed logs/requests.jsonl
+
+Captured Test STDOUT
+------------------------------------------------------------------------------
+============================================================
+          EDGE HUNTER - AUTOMATED TESTS
+============================================================
+Test directory: C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests
+
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"3c15c3a7c9be43cf9810f7dce7a46e21","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":1.38,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"5842e76b670f4c3b90475eff3075a435","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.67,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"2f25210bbf0b4464ac4da0f71bf6c2a5","method":"GET","path":"/api/auth/me","status":200,"duration_ms":1.15,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ca16424d9ce54fbb9bd4de99e772002e","method":"GET","path":"/api/admin/dashboard","status":403,"duration_ms":0.8,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"5e44ca08b4f2482c8f5767c1bffd448a","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.52,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"64ee2ed7e8dd4cf8b80151bd6dc055e5","method":"POST","path":"/api/admin/login","status":200,"duration_ms":43.14,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"32ce2f94bbe64cd1a4eb025b128e0987","method":"GET","path":"/api/admin/dashboard","status":200,"duration_ms":1.32,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"c8d9858af19648a2a8419717e8e6f27c","method":"POST","path":"/api/admin/users/1/extend","status":200,"duration_ms":10.34,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e909803736dd4d478f62e5c682365657","method":"POST","path":"/api/admin/users/1/revoke","status":200,"duration_ms":10.89,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"a91cf8e52e0842b6a98634a5f6b6e999","method":"GET","path":"/api/auth/me","status":200,"duration_ms":0.75,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"0d673e0983b84890ae74933e7ed3ecd8","method":"POST","path":"/api/admin/users/1/relink","status":200,"duration_ms":30.04,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"5976827854f24631b92518df339250d1","method":"GET","path":"/api/auth/me","status":401,"duration_ms":0.85,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ca1a28e9f418424a882a95e0f8bf2f63","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.55,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:39Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"b33ca077433342189db5ad983802d1b7","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.47,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:40Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"8290a80a89fb4941bdf5eaecf793ef75","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:40Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"5d78c33547e84ba98e0a7cefc452f4c3","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.98,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:40Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"450e44c85a074c5cb01756221df2aec1","method":"POST","path":"/api/auth/redeem","status":403,"duration_ms":1.1,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"0c83136caf25475ea94aaea6ef922795","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.54,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"9bad6e8a7ad7490d8a260d290ee25861","method":"POST","path":"/api/auth/register","status":200,"duration_ms":44.26,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"723da91092144d7cbde3f42788912af2","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.53,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"37dfbc7228264043b7162a7f5a7a7f4c","method":"POST","path":"/api/auth/login","status":403,"duration_ms":22.33,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"c95894529a1044ba8f23b40dc16790a5","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"6c518f08ee594cc5bdc082169332265d","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.05,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"f372cf51da7b47a1bceb359fe3778d3e","method":"GET","path":"/api/auth/me","status":200,"duration_ms":1.43,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:41Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"df6380425f6b405fa3918c81c4fe01c2","method":"POST","path":"/api/analyze","status":403,"duration_ms":1.51,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"f8381d019eeb437a9b2f0a9194ac1215","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"63d0a5de6fbc49b3a6bdc0a606b7610f","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.65,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"109316a4d854458d83c3f40851b2168b","method":"POST","path":"/api/auth/redeem","status":422,"duration_ms":1.36,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e663690c85794b24bf894adea3635120","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.52,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"62183b8cde154f7ba3bf1a2d3d0307f0","method":"POST","path":"/api/admin/login","status":200,"duration_ms":40.11,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"b1c60ad3daf34792ab87d83fd4ef41ab","method":"POST","path":"/api/admin/codes","status":200,"duration_ms":6.67,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"792e6ff9fba043788373a66fb5465bc3","method":"POST","path":"/api/auth/redeem","status":200,"duration_ms":7.34,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"810ab8a1661b41f1a10cfe84dffdf16b","method":"POST","path":"/api/auth/redeem","status":422,"duration_ms":0.87,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:42Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"23fff175ad0a4dd4ab50c9a0bc8a182f","method":"POST","path":"/api/auth/redeem","status":422,"duration_ms":4.86,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"7bb9457fcd534d1bb4e9ae5dcc5531eb","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.91,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ebc7e9c0338f4c9193cbd8677a421835","method":"POST","path":"/api/auth/login","status":401,"duration_ms":0.84,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e3de22e7628c404aa0839b8856f119fd","method":"POST","path":"/api/auth/login","status":401,"duration_ms":0.56,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"4fbe4623a4984dcab0fb8aa019880361","method":"POST","path":"/api/auth/login","status":401,"duration_ms":0.57,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"d8ba2e3560b04fd593e0c113fa284347","method":"POST","path":"/api/auth/login","status":401,"duration_ms":0.54,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"2b193c6959a34d9cbce2e376e9b7af21","method":"POST","path":"/api/auth/login","status":401,"duration_ms":0.56,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:43Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"f9948499e6df44fabd431ce8aee20345","method":"POST","path":"/api/auth/login","status":429,"duration_ms":0.35,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"da06a7b13077420c9d92c4cfe0050a41","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.59,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e3470488632c424d974e81c95c353cb9","method":"POST","path":"/api/auth/register","status":200,"duration_ms":42.53,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"2c6cf290380c4efe92adecca4b19fdd9","method":"POST","path":"/api/auth/logout","status":200,"duration_ms":5.45,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"4750239f5af44f41877b862e2c529d57","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.29,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"153777fe97c54c0eb1fccefe13462851","method":"POST","path":"/api/auth/login","status":200,"duration_ms":37.51,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"1fb4f4dc77fc4283bf30e2a13cf15397","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.55,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:44Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"21ddd8920c9e4379a2eebad7ca60e1af","method":"POST","path":"/api/auth/register","status":200,"duration_ms":39.98,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:45Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"008831510df74929840dfc26d6997dce","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.52,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:45Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"53df6ad8b8014a8591cd6e2fea0ff0fc","method":"POST","path":"/api/auth/register","status":200,"duration_ms":39.87,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:45Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"09bec3224e1a4bae9bf62f6918f94d70","method":"GET","path":"/api/auth/me","status":401,"duration_ms":4.84,"client_ip":"testclient"}
+...............{"ts":"2026-09-26T15:52:47Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"fa099d986950405fb799936d03f4da98","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.54,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:47Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"42faf2afe5154b1ab4204a815b2c2d04","method":"POST","path":"/api/analyze","status":401,"duration_ms":0.74,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:47Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"bea4ca22ba9645749fc5963754c8d0b2","method":"GET","path":"/api/admin/dashboard","status":401,"duration_ms":0.47,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:47Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"6eb3e6225df5433ba21907303227d125","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.53,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"49cd8639b09644e2927b2fde60c26d53","method":"POST","path":"/api/auth/register","status":200,"duration_ms":800.04,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"5032dd2c2368414e8e99574f904c7efd","method":"POST","path":"/api/analyze","status":200,"duration_ms":39.53,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"24aa0095b4b245d59014bb1763ea80cb","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.55,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"7a610a27d9e34911b30695a5d26584fb","method":"POST","path":"/api/admin/login","status":200,"duration_ms":43.54,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"bb5a8e791bb54831adafb10f75cf3372","method":"POST","path":"/api/admin/codes","status":200,"duration_ms":5.94,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"8645214116f04f859697484bdb15e12d","method":"POST","path":"/api/analyze","status":403,"duration_ms":1.08,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"f1e171dcde204113b6bc17ca935cd055","method":"POST","path":"/api/auth/redeem","status":200,"duration_ms":6.44,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"99bb6c193aaa460c92c92e373858da5b","method":"POST","path":"/api/analyze","status":200,"duration_ms":16.43,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:48Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ebceba44a6cc409182a1fdde63dad70c","method":"GET","path":"/api/admin/dashboard","status":200,"duration_ms":1.18,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:49Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"a85fdd6e49834d1daba053b48d74255f","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.55,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:49Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"2cf1eceac35b4931bbece6fae2d29e16","method":"GET","path":"/data/edge_hunter.db","status":404,"duration_ms":0.23,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:49Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"67ff3281f1e340739d16e6442cf8e4b5","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.89,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:50Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"98745f2dd3ec4825a2e675a34f4e3451","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.5,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:50Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"737642a3cbfa4d1bba46fda95e22015f","method":"POST","path":"/api/auth/register","status":200,"duration_ms":40.69,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:50Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"add90955e8054a3082f6f96884aade70","method":"POST","path":"/api/analyze","status":401,"duration_ms":0.74,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"edc56cbf0d634c18ade7a64bf4717eea","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.56,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"3b866cd45b0846fda7be422f755c3ed1","method":"POST","path":"/api/auth/register","status":200,"duration_ms":39.25,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"dca4eac708b64438a316636855ec23ea","method":"POST","path":"/api/analyze","status":200,"duration_ms":37.72,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"d25a197b07aa43669bb9d132ed6a4508","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"fda9ee0165b642ed9deeebb3354163bc","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.12,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"91735c2f459c42a4b5e5b87574533391","method":"GET","path":"/api/health","status":200,"duration_ms":0.49,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:51Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"51c32082af2544538b965906cf7044c9","method":"GET","path":"/api/meta","status":200,"duration_ms":0.59,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:52Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"6892746d6cd14b73bf2da2c899735389","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:52Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"a8616743240642c7ba7f7386a3bb21ed","method":"POST","path":"/api/auth/register","status":200,"duration_ms":39.66,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:52Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"a9b84f44166c43d8bdc4791517bc0ed7","method":"POST","path":"/api/analyze","status":422,"duration_ms":0.87,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:53Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ef623a9abca84ce4bb10fbebece3e12f","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.51,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:53Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"38d9fc09efc44914bd62ae170347269e","method":"POST","path":"/api/auth/register","status":200,"duration_ms":40.53,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:53Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"d08a36b473314561ad8598950f820fed","method":"POST","path":"/api/analyze","status":503,"duration_ms":2.15,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:54Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ee2426e7128d411b8d75e3ef1af1f98b","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.52,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:54Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"795322cb9d1e4f558aa0ad835bbbaa9f","method":"POST","path":"/api/auth/register","status":200,"duration_ms":41.43,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:54Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ae1de0f0f394413dabe226d5c6db7281","method":"GET","path":"/api/auth/status","status":200,"duration_ms":0.57,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:54Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"689c2d357a4c424f8f53c6d9845dd209","method":"GET","path":"/api/auth/status","status":200,"duration_ms":1.04,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:55Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"4574cb5a85d144a3906d22f6cc3a0d14","method":"GET","path":"/api/ready","status":200,"duration_ms":0.65,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:55Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e375d50d37e24fe08c2ccadf27d58725","method":"GET","path":"/api/health","status":200,"duration_ms":0.43,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:55Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"e65a3d7af9e64713826addcf566a0ffb","method":"GET","path":"/api/ready","status":200,"duration_ms":0.61,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:55Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ea4c51e56c484e30b23c0701d36da661","method":"OPTIONS","path":"/api/meta","status":200,"duration_ms":0.07,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:55Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"fa8f92f67fe6458aba7a8705be4b9ad9","method":"OPTIONS","path":"/api/meta","status":400,"duration_ms":0.09,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:56Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"4f54080469c54b71832bfe848364a6a9","method":"GET","path":"/api/health","status":400,"duration_ms":0.09,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:56Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"fef28c1f9c9e4d9297741d024ce39bac","method":"GET","path":"/api/auth/csrf","status":200,"duration_ms":0.54,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:57Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"266e16ef67524a2684a48b9e8130b3f1","method":"GET","path":"/api/docs","status":404,"duration_ms":0.23,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:57Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"dcc4ea3026a34dcdb28396e210ffbbed","method":"GET","path":"/api/openapi.json","status":404,"duration_ms":0.21,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:57Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ca3213b4a17846c9a8d39e2bad9a9967","method":"GET","path":"/api/meta","status":200,"duration_ms":0.75,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:57Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"4cc71ad9a88841068a80c0fe0f6402a1","method":"GET","path":"/api/meta","status":200,"duration_ms":0.25,"client_ip":"testclient"}
+{"ts":"2026-09-26T15:52:57Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"002cece3e822429ebfef4bc66cb9c904","method":"GET","path":"/api/meta","status":429,"duration_ms":0.1,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:59Z","level":"ERROR","logger":"edge_hunter.request","message":"Readiness check failed","exception":"RuntimeError"}
+{"ts":"2026-09-26T15:52:59Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"1e55ff0a400f4ee280f5efd1fec68f16","method":"GET","path":"/api/ready","status":503,"duration_ms":0.84,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:52:59Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"58c22461dd5d45069652b08e46ed4682","method":"POST","path":"/api/auth/login","status":413,"duration_ms":0.08,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:53:00Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"114dc9f5923745b0bc2ec2fe4f2bd465","method":"GET","path":"/api/health","status":200,"duration_ms":0.79,"client_ip":"testclient"}
+.{"ts":"2026-09-26T15:53:00Z","level":"ERROR","logger":"edge_hunter.request","message":"Unhandled application exception","request_id":"13d688a30c7943bda17ccc9b716183e8","method":"GET","path":"/api/_test_error","status":500,"duration_ms":1.03,"client_ip":"testclient","exception":"RuntimeError"}
+..............................................................................................................................learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+.learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 798, in _run_once
+    raise LearningCycleError("policy-only cycle requires policy and explicit validated evidence")
+app.learning.continuous.LearningCycleError: policy-only cycle requires policy and explicit validated evidence
+learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 798, in _run_once
+    raise LearningCycleError("policy-only cycle requires policy and explicit validated evidence")
+app.learning.continuous.LearningCycleError: policy-only cycle requires policy and explicit validated evidence
+.learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 798, in _run_once
+    raise LearningCycleError("policy-only cycle requires policy and explicit validated evidence")
+app.learning.continuous.LearningCycleError: policy-only cycle requires policy and explicit validated evidence
+.learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 798, in _run_once
+    raise LearningCycleError("policy-only cycle requires policy and explicit validated evidence")
+app.learning.continuous.LearningCycleError: policy-only cycle requires policy and explicit validated evidence
+.learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 798, in _run_once
+    raise LearningCycleError("policy-only cycle requires policy and explicit validated evidence")
+app.learning.continuous.LearningCycleError: policy-only cycle requires policy and explicit validated evidence
+..learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+..learning cycle attempt failed
+Traceback (most recent call last):
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 698, in _run_with_retries
+    return self._run_once(cycle.cycle_id, request)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\app\learning\continuous.py", line 713, in _run_once
+    build_result = self.dataset_manager.build_and_store(**dict(request.dataset_build_kwargs))
+  File "C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\tests\unit\learning\test_continuous_learning.py", line 82, in build_and_store
+    raise RuntimeError(self.message)
+RuntimeError: dataset failed
+...............{"ts":"2026-09-26T15:54:00Z","level":"INFO","logger":"edge_hunter.request","message":"HTTP request","request_id":"ebd51af5ac154724b0760eccd21fa7b8","method":"POST","path":"/api/analyze","status":401,"duration_ms":0.76,"client_ip":"testclient"}
+.......................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 647 tests in 372.989s
+
+OK
+
+------------------------------------------------------------
+Tests run: 647
+Passed: 647
+Failed: 0
+Errors: 0
+RESULT: ALL TESTS PASSED
+============================================================
+
+EDGE HUNTER Phase 13 live-data provider checks completed successfully.
+Environment: development
+Database: C:\Users\Rafid\Desktop\EDGE_HUNTER_STRUCTURE\data\edge_hunter.db
+RESULT: APPLICATION STARTUP PASS
+
+Captured Test STDERR
+------------------------------------------------------------------------------
+
+
+==============================================================================
+[01] Project Structure .......... PASS
+==============================================================================
+[PASS] Directory exists: app
+  FILE: app
+[PASS] Directory exists: app/core
+  FILE: app/core
+[PASS] Directory exists: app/data
+  FILE: app/data
+[PASS] Directory exists: app/db
+  FILE: app/db
+[PASS] Directory exists: app/features
+  FILE: app/features
+[PASS] Directory exists: app/backtest
+  FILE: app/backtest
+[PASS] Directory exists: app/research
+  FILE: app/research
+[PASS] Directory exists: app/optimization
+  FILE: app/optimization
+[PASS] Directory exists: app/signals
+  FILE: app/signals
+[PASS] Directory exists: app/strategies
+  FILE: app/strategies
+[PASS] Directory exists: app/providers
+  FILE: app/providers
+[PASS] Directory exists: app/web
+  FILE: app/web
+[PASS] Directory exists: app/auth
+  FILE: app/auth
+[PASS] Directory exists: app/admin
+  FILE: app/admin
+[PASS] Directory exists: app/learning
+  FILE: app/learning
+[PASS] Directory exists: config
+  FILE: config
+[PASS] Directory exists: migrations
+  FILE: migrations
+[PASS] Directory exists: tests
+  FILE: tests
+[PASS] File exists: main.py
+  FILE: main.py
+[PASS] File exists: pyproject.toml
+  FILE: pyproject.toml
+[PASS] File exists: config/config_hunter.py
+  FILE: config/config_hunter.py
+[PASS] File exists: app/core/bootstrap.py
+  FILE: app/core/bootstrap.py
+[PASS] File exists: app/core/test_runner.py
+  FILE: app/core/test_runner.py
+[PASS] File exists: app/db/database.py
+  FILE: app/db/database.py
+[PASS] File exists: app/db/migrations.py
+  FILE: app/db/migrations.py
+[PASS] File exists: app/web/app.py
+  FILE: app/web/app.py
+[PASS] File exists: app/web/analysis_service.py
+  FILE: app/web/analysis_service.py
+[PASS] File exists: app/web/schemas.py
+  FILE: app/web/schemas.py
+[PASS] File exists: app/learning/models.py
+  FILE: app/learning/models.py
+[PASS] File exists: app/learning/dataset.py
+  FILE: app/learning/dataset.py
+[PASS] File exists: app/learning/training.py
+  FILE: app/learning/training.py
+[PASS] File exists: app/learning/registry.py
+  FILE: app/learning/registry.py
+[PASS] File exists: app/learning/oos_evaluation.py
+  FILE: app/learning/oos_evaluation.py
+[PASS] File exists: app/learning/policies.py
+  FILE: app/learning/policies.py
+[PASS] File exists: app/learning/continuous.py
+  FILE: app/learning/continuous.py
+[PASS] File exists: app/learning/continuous_repository.py
+  FILE: app/learning/continuous_repository.py
+[PASS] File exists: .env.example
+  FILE: .env.example
+[PASS] File exists: .gitignore
+  FILE: .gitignore
+[PASS] Strategy module location discovered: app/strategies
+[PASS] Learning Python modules discovered: 20
+  FILE: app/learning
+
+==============================================================================
+[02] Python Validation .......... PASS
+==============================================================================
+[PASS] AST syntax parse passed for 210 Python files
+[PASS] python -m compileall completed successfully in an isolated temporary tree
+[PASS] No unresolved app/config import targets were detected by static module-map validation
+
+==============================================================================
+[03] Full Test Suite .......... WARN
+==============================================================================
+[PASS] Full test suite completed with exit code 0
+[WARN] Test-side effects observed
+  SEVERITY: WARN
+  REASON: changed logs/requests.jsonl
+
+==============================================================================
+[04] Learning Safety .......... PASS
+==============================================================================
+[PASS] EDGE_HUNTER_LEARNING_ENABLED=false
+  REASON: effective source=.env.example
+[PASS] EDGE_HUNTER_LEARNING_AUTOMATIC_RETRAINING_ENABLED=false
+  REASON: effective source=.env.example
+[PASS] EDGE_HUNTER_LEARNING_AUTOMATIC_PROMOTION_ENABLED=false
+  REASON: effective source=.env.example
+[PASS] EDGE_HUNTER_LEARNING_PRODUCTION_ENABLED=false
+  REASON: effective source=.env.example
+[PASS] Central configuration exposes all four learning safety flags with False defaults
+  FILE: config/config_hunter.py
+[PASS] Continuous-learning configuration uses safe False defaults
+  FILE: app/learning/continuous.py
+
+==============================================================================
+[05] API Analyze Path .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] Analyze route has no direct training/promotion/rollback calls: app.post('/api/analyze', response_model=AnalysisResponse)
+  FILE: app/web/app.py:312
+[PASS] Analyze route does not directly reference app.learning
+  FILE: app/web/app.py:312
+[PASS] Analysis service method contains no direct training/retraining/promotion/rollback calls
+  FILE: app/web/analysis_service.py:89
+[PASS] Analysis service has no direct app.learning import/reference
+  FILE: app/web/analysis_service.py:89
+[PASS] No non-test scheduler/promotion/rollback call sites found under app/web or app/core
+[NOT_FULLY_VERIFIED] Transitive Analyze call graph
+  REASON: This is a static audit; it does not execute every downstream helper path or production request.
+
+==============================================================================
+[06] Leakage Protection .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] Feature no-lookahead test exists
+  FILE: tests/unit/features/test_no_lookahead.py
+[PASS] Dataset layer contains explicit temporal split/OOS bookkeeping
+  FILE: app/learning/dataset.py
+[PASS] Training pipeline statically contains train-only fit and OOS contamination guard
+  FILE: app/learning/training.py
+[PASS] OOS evaluation module has no training or dataset-mutation calls
+  FILE: app/learning/oos_evaluation.py
+[PASS] OOS uses evaluation-only artifact loading/prediction calls
+  FILE: app/learning/oos_evaluation.py
+  REASON: calls=[(723, 'load_artifact'), (783, 'predict')]
+[PASS] Learning Record / Feature Snapshot identity fields are statically present
+  FILE: app/learning/records.py
+[PASS] No obvious negative pandas shift pattern was detected in feature/strategy/optimization/learning Python sources
+[NOT_FULLY_VERIFIED] Global future-data isolation
+  REASON: Static inspection cannot mathematically prove every runtime data path is free of look-ahead or future-data contamination.
+
+==============================================================================
+[07] Model Registry .......... PASS
+==============================================================================
+[PASS] Model Version registry contains artifact checksum and training/dataset/schema lineage fields
+  FILE: app/learning/registry.py
+[PASS] Registry verifies artifact path/existence/hash before reload
+  FILE: app/learning/registry.py
+[PASS] Training pipeline persists artifact checksum metadata
+  FILE: app/learning/training.py
+[PASS] No direct model-artifact loader call was found in app/web or app/core
+
+==============================================================================
+[08] OOS / Walk-Forward / Robustness .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] OOS module found: app/learning/oos_evaluation.py
+[PASS] Walk-Forward module found: app/optimization/splits.py, app/optimization/validation.py
+[PASS] Robustness module found: app/optimization/robustness.py
+[PASS] Sensitivity module found: app/optimization/sensitivity.py
+[PASS] app/optimization/validation.py contains temporal-split terminology
+  FILE: app/optimization/validation.py
+[PASS] Dedicated L8 OOS/walk-forward/robustness test module exists
+  FILE: tests/unit/learning/test_oos_walk_forward_robustness.py
+[PASS] OOS evaluation source has no model fitting calls
+[NOT_FULLY_VERIFIED] End-to-end OOS isolation
+  REASON: Static source inspection cannot prove every runtime branch preserves OOS isolation under all future code paths.
+
+==============================================================================
+[09] Learned Policy .......... PASS
+==============================================================================
+[PASS] Policy Version evidence found
+  FILE: app/learning/policies.py
+[PASS] Compatibility evidence found
+  FILE: app/learning/policies.py
+[PASS] Risk/lot override blocked evidence found
+  FILE: app/learning/policies.py
+[PASS] R:R lower bound evidence found
+  FILE: app/learning/policies.py
+[PASS] R:R upper bound evidence found
+  FILE: app/learning/policies.py
+[PASS] Disabled default evidence found
+  FILE: app/learning/policies.py
+[PASS] No fixed strategy weights evidence found
+  FILE: app/learning/policies.py
+[PASS] Policy layer explicitly protects risk/lot size from learned overrides
+  FILE: app/learning/policies.py
+[PASS] AI inference result exposes predicted_label without a static direct BUY/SELL conversion detected
+  FILE: app/learning/policy_adapters.py
+[PASS] Learned-policy adapter contains fallback terminology
+  FILE: app/learning/policy_adapters.py
+
+==============================================================================
+[10] Continuous Learning .......... NOT_FULLY_VERIFIED
+==============================================================================
+[NOT_FULLY_VERIFIED] Continuous learning cycle states not fully matched
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning trigger sources statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning retry support statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning cooldown support statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning active-scope guard statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning promotion gate statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning rollback statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous learning production state statically present
+  FILE: app/learning/continuous.py
+[PASS] Continuous-learning repository contains audit/state/history persistence
+  FILE: app/learning/continuous_repository.py
+[PASS] L10 migration contains cycle/candidate/production/monitoring/audit tables
+  FILE: migrations/011_learning_continuous_learning.sql
+[PASS] No non-test start_scheduler call site found
+[NOT_FULLY_VERIFIED] Crash/restart recovery under real scheduler process
+  REASON: Static review can inspect guards but cannot prove process-level recovery without executing the scheduler lifecycle; the audit deliberately does not start it.
+
+==============================================================================
+[11] Strategies .......... PASS
+==============================================================================
+[PASS] Discovered 6 strategy module(s): classic.py, ict.py, models.py, registry.py, smc.py, utils.py
+  FILE: app/strategies
+[PASS] Strategy Context/Signal contract evidence
+  FILE: app/strategies/models.py
+[PASS] Classic strategy registry evidence
+  FILE: app/strategies/registry.py
+[PASS] SMC strategy registry evidence
+  FILE: app/strategies/registry.py
+[PASS] ICT strategy registry evidence
+  FILE: app/strategies/registry.py
+[PASS] Strategy classes discovered: ClassicV1, ICTV1, SMCV1, SignalDirection, SignalState, Strategy, StrategyConfig, StrategyContext, StrategyRegistry, StrategySignal
+[PASS] AI strategy/inference references are isolated in discovered learning/inference modules; this audit does not fabricate BUY/SELL mapping
+
+==============================================================================
+[12] Risk / R:R .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] Risk percent controls are represented in configuration/schema/strategy layers
+[PASS] 1.5–2.0 R:R bounds are represented in project code
+  REASON: app/web/schemas.py, app/strategies/models.py, app/learning/policies.py, app/learning/policy_adapters.py
+[NOT_FULLY_VERIFIED] Learned policy R:R bound expressions
+  FILE: app/learning/policies.py
+[WARN] Risk/lot field names are present in learned-policy source
+  SEVERITY: WARN
+  REASON: Field-name presence is expected; current policy logic must reject learned risk/lot overrides rather than silently change them.
+[NOT_FULLY_VERIFIED] End-to-end runtime risk enforcement
+  REASON: Static audit cannot execute a live order/position path; it verifies contract evidence without altering strategy or risk settings.
+
+==============================================================================
+[13] Authentication / Subscription .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] Password hashing evidence
+  FILE: app/auth/security.py
+[PASS] Session handling evidence
+  FILE: app/auth/security.py
+[PASS] CSRF evidence
+  FILE: app/auth/security.py
+[PASS] Subscription state evidence
+  FILE: app/auth/security.py
+[PASS] Trial evidence
+  FILE: app/auth/security.py
+[PASS] Device linking evidence
+  FILE: app/auth/security.py
+[PASS] Subscription code length evidence
+  FILE: app/auth/security.py
+[PASS] Admin controls evidence
+  FILE: app/auth/security.py
+[PASS] No hardcoded credential literal found in non-test auth source
+[NOT_FULLY_VERIFIED] Real-account/session lifecycle
+  REASON: No real accounts or production data were created or mutated by this audit.
+
+==============================================================================
+[14] Security .......... PASS
+==============================================================================
+[PASS] CORS wildcard validation is implemented in central configuration
+  FILE: config/config_hunter.py
+[PASS] TrustedHostMiddleware is configured
+  FILE: app/web/app.py
+[PASS] Request size limit evidence
+  FILE: app/web/security.py
+[PASS] Rate limiting evidence
+  FILE: app/web/security.py
+[PASS] Request ID logging evidence
+  FILE: app/web/security.py
+[PASS] Security headers evidence
+  FILE: app/web/security.py
+[PASS] CSRF evidence
+  FILE: app/web/security.py
+[PASS] Secure cookies evidence
+  FILE: app/web/security.py
+[PASS] Debug setting evidence
+  FILE: app/web/security.py
+[PASS] No obvious hardcoded secret assignments detected in non-test Python source
+[PASS] .env is ignored by version-control configuration
+  FILE: .gitignore
+  REASON: The audit never prints .env values.
+[PASS] Database.execute safely forwards parameterized SQL through the DB abstraction
+  FILE: app/db/database.py:50
+  REASON: The method is a trusted low-level wrapper; SQL construction is audited at its callers.
+[PASS] Dynamic SQL identifier is constrained by an explicit allowlist
+  FILE: app/learning/continuous_repository.py:400
+  REASON: Only a constant allowlisted column/field name is interpolated; data values remain bound parameters.
+
+==============================================================================
+[15] Configuration .......... FAIL
+==============================================================================
+[PASS] Central configuration abstraction evidence
+  FILE: config/config_hunter.py
+[PASS] Provider/environment configuration evidence
+  FILE: config/config_hunter.py
+[PASS] Learning flags are represented in .env.example
+  FILE: .env.example
+[FAIL] .env.example contains a concrete credential-like value
+  FILE: .env.example
+  SEVERITY: FAIL
+  REASON: keys=['EDGE_HUNTER_LIVE_PROVIDER_API_KEY']; values are never printed.
+
+==============================================================================
+[16] Data Provider .......... FAIL
+==============================================================================
+[PASS] Provider abstraction contract evidence
+  FILE: app/providers/live_provider.py
+[PASS] Twelve Data adapter contract evidence
+  FILE: app/providers/twelvedata.py
+[PASS] Provider factory contract evidence
+  FILE: app/providers/factory.py
+[PASS] Analysis service provider injection contract evidence
+  FILE: app/web/analysis_service.py
+[PASS] Central live-provider configuration is environment based
+  FILE: config/config_hunter.py
+[PASS] Twelve Data is the configured provider in .env.example
+  FILE: .env.example
+[FAIL] .env.example appears to contain a concrete provider credential
+  FILE: .env.example
+  SEVERITY: FAIL
+  REASON: Credential values are never printed by the audit.
+[PASS] No MetaTrader dependency declaration found in dependency manifests
+[PASS] No MetaTrader runtime import found in application code
+[NOT_APPLICABLE] Legacy MetaTrader text appears only in documentation/non-runtime text
+  REASON: count=68; documentation does not affect runtime provider selection.
+
+==============================================================================
+[17] Hardcoded / Dangerous Patterns .......... PASS
+==============================================================================
+[PASS] Database.execute safely forwards parameterized SQL through the DB abstraction
+  FILE: app/db/database.py:50
+  REASON: The method is a trusted low-level wrapper; SQL construction is audited at its callers.
+[PASS] Dynamic SQL identifier is constrained by an explicit allowlist
+  FILE: app/learning/continuous_repository.py:400
+  REASON: Only a constant allowlisted column/field name is interpolated; data values remain bound parameters.
+
+==============================================================================
+[18] Database / Migrations .......... PASS
+==============================================================================
+[PASS] Combined migration sequence is contiguous 1..11
+  REASON: runner_versions=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; file_versions=[1, 2, 4, 5, 6, 7, 8, 9, 10, 11]; inline_only=[3]
+[PASS] Migration runner contains the discovered migration versions and file-backed migrations
+[PASS] SQLite database opened read-only: data/edge_hunter.db
+  FILE: data/edge_hunter.db
+[PASS] Expected auth/learning schema tables are present in the read-only database
+  FILE: data/edge_hunter.db
+[PASS] Database migration state contains only known migration versions
+  FILE: data/edge_hunter.db
+
+==============================================================================
+[19] Artifact Integrity .......... NOT_FULLY_VERIFIED
+==============================================================================
+[NOT_APPLICABLE] Artifact root does not currently exist: data/training_artifacts
+  FILE: data/training_artifacts
+  REASON: No stored artifact is available to verify.
+[NOT_FULLY_VERIFIED] No ModelVersion artifact metadata rows were found to verify
+[PASS] Serialized artifacts were not deserialized by this audit (safe mode)
+
+==============================================================================
+[20] Startup / Runtime Readiness .......... NOT_FULLY_VERIFIED
+==============================================================================
+[PASS] Main entry point exposes explicit serve/production flags
+  FILE: main.py
+[PASS] Bare main.py invocation does not start the long-running server automatically
+  FILE: main.py
+[PASS] main.py runs the project test runner before startup
+  FILE: main.py
+[PASS] Bootstrap does not reference start_scheduler
+  FILE: app/core/bootstrap.py
+[PASS] Application composition/bootstrap entry point found
+  FILE: app/core/bootstrap.py
+[NOT_FULLY_VERIFIED] Graceful failure under actual production process signals
+  REASON: The audit avoids starting a long-running server or background workers by design.
+
+==============================================================================
+SUMMARY
+==============================================================================
+Warnings / Not Fully Verified: 12
+Failures: 2
+Blockers: 0
+
+WARNINGS / NOT FULLY VERIFIED
+- [WARN] Test-side effects observed: changed logs/requests.jsonl
+- [NOT_FULLY_VERIFIED] Transitive Analyze call graph: This is a static audit; it does not execute every downstream helper path or production request.
+- [NOT_FULLY_VERIFIED] Global future-data isolation: Static inspection cannot mathematically prove every runtime data path is free of look-ahead or future-data contamination.
+- [NOT_FULLY_VERIFIED] End-to-end OOS isolation: Static source inspection cannot prove every runtime branch preserves OOS isolation under all future code paths.
+- [NOT_FULLY_VERIFIED] Continuous learning cycle states not fully matched: 
+- [NOT_FULLY_VERIFIED] Crash/restart recovery under real scheduler process: Static review can inspect guards but cannot prove process-level recovery without executing the scheduler lifecycle; the audit deliberately does not start it.
+- [NOT_FULLY_VERIFIED] Learned policy R:R bound expressions: 
+- [WARN] Risk/lot field names are present in learned-policy source: Field-name presence is expected; current policy logic must reject learned risk/lot overrides rather than silently change them.
+- [NOT_FULLY_VERIFIED] End-to-end runtime risk enforcement: Static audit cannot execute a live order/position path; it verifies contract evidence without altering strategy or risk settings.
+- [NOT_FULLY_VERIFIED] Real-account/session lifecycle: No real accounts or production data were created or mutated by this audit.
+- [NOT_FULLY_VERIFIED] No ModelVersion artifact metadata rows were found to verify: 
+- [NOT_FULLY_VERIFIED] Graceful failure under actual production process signals: The audit avoids starting a long-running server or background workers by design.
+
+FAILURES
+- .env.example contains a concrete credential-like value (.env.example): keys=['EDGE_HUNTER_LIVE_PROVIDER_API_KEY']; values are never printed.
+- .env.example appears to contain a concrete provider credential (.env.example): Credential values are never printed by the audit.
+
+==============================================================================
+ITEMS NOT FULLY VERIFIED
+==============================================================================
+- [05] Transitive Analyze call graph: This is a static audit; it does not execute every downstream helper path or production request.
+- [06] Global future-data isolation: Static inspection cannot mathematically prove every runtime data path is free of look-ahead or future-data contamination.
+- [08] End-to-end OOS isolation: Static source inspection cannot prove every runtime branch preserves OOS isolation under all future code paths.
+- [10] Continuous learning cycle states not fully matched: 
+- [10] Crash/restart recovery under real scheduler process: Static review can inspect guards but cannot prove process-level recovery without executing the scheduler lifecycle; the audit deliberately does not start it.
+- [12] Learned policy R:R bound expressions: 
+- [12] End-to-end runtime risk enforcement: Static audit cannot execute a live order/position path; it verifies contract evidence without altering strategy or risk settings.
+- [13] Real-account/session lifecycle: No real accounts or production data were created or mutated by this audit.
+- [19] No ModelVersion artifact metadata rows were found to verify: 
+- [20] Graceful failure under actual production process signals: The audit avoids starting a long-running server or background workers by design.
+
+==============================================================================
+FINAL STATUS
+==============================================================================
+BLOCKED
+==============================================================================

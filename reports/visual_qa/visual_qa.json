@@ -1,0 +1,35 @@
+{
+  "viewports": [
+    {
+      "viewport": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "rtl": true,
+      "horizontal_overflow": false,
+      "console_errors": [],
+      "page_errors": []
+    },
+    {
+      "viewport": "tablet",
+      "width": 1024,
+      "height": 900,
+      "status": 200,
+      "rtl": true,
+      "horizontal_overflow": false,
+      "console_errors": [],
+      "page_errors": []
+    },
+    {
+      "viewport": "mobile",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "rtl": true,
+      "horizontal_overflow": false,
+      "console_errors": [],
+      "page_errors": []
+    }
+  ],
+  "passed": true
+}

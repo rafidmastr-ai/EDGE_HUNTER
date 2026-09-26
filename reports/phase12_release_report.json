@@ -1,0 +1,29 @@
+{
+  "phase": "12",
+  "generated_at": "2026-09-24T20:38:56.586605+00:00",
+  "test_suite": {
+    "tests_run": 184,
+    "passed": 184,
+    "failed": 0,
+    "errors": 0,
+    "successful": true
+  },
+  "preflight": {
+    "name": "clean_installation_compile_check",
+    "passed": true,
+    "duration_ms": 1283.05,
+    "stderr": ""
+  },
+  "release_readiness": "AUTOMATED_PASS_BROWSER_QA_PENDING",
+  "defects_fixed_in_phase": [
+    "Carried forward and enforced the httpx2 dependency declaration in release manifests.",
+    "Added an end-to-end regression covering trial expiry, server-side access denial, subscription-code redemption and restored analysis access.",
+    "Added final static frontend checks for RTL, responsive breakpoints, copy controls and absence of embedded screenshots/market numbers."
+  ],
+  "known_limitations": [
+    "Browser visual QA requires a local Chromium/Playwright environment; static visual contracts are included in the automated suite.",
+    "Current historical UI datasets expose XAUUSD and GBPUSD files, while the Phase 09 UI contract still lists EURUSD; missing-symbol handling remains an explicit data-unavailable state until the live provider phase changes the symbol source."
+  ],
+  "failures": [],
+  "errors": []
+}

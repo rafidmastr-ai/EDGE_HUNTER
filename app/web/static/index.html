@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#061120">
+  <meta name="description" content="EDGE HUNTER — Technical Market Analysis & Signal Engine">
+  <title>EDGE HUNTER — Technical Market Analysis & Signal Engine</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar glass">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img"><path d="M10 46 18 22l10 9 9-18 17 13" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">EDGE HUNTER</div>
+          <div class="brand-subtitle">Technical Market Analysis &amp; Signal Engine</div>
+        </div>
+      </div>
+      <nav class="nav-links" aria-label="التنقل">
+        <a class="nav-link active" href="#analysis">التحليل</a>
+        <a class="nav-link" href="#market">السوق</a>
+      </nav>
+      <div class="header-tools">
+        <div class="connection" id="connection-status"><span class="status-dot"></span><span>جاري التحقق</span></div>
+        <div class="data-source" id="data-source-status">مصدر البيانات: —</div>
+        <div class="clock" id="clock">--:--:--</div>
+        <button class="icon-button" id="theme-toggle" type="button" title="تبديل المظهر" aria-label="تبديل المظهر">◐</button>
+        <div class="account-pill" id="account-pill">غير مسجل</div>
+      </div>
+    </header>
+
+    <section class="auth-panel glass" id="auth-panel">
+      <div class="auth-copy">
+        <div class="section-kicker">الوصول الآمن</div>
+        <h1 class="auth-title">سجّل الدخول لاستخدام التحليل</h1>
+        <p class="muted">الحساب الجديد يحصل على تجربة مجانية لمدة 7 أيام. حالة الاشتراك والتحقق من الصلاحية تتم على الخادم.</p>
+        <div class="access-status" id="access-status">جارٍ التحقق من الحساب...</div>
+      </div>
+      <div class="auth-forms">
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="login-tab" type="button">تسجيل الدخول</button>
+          <button class="auth-tab" id="register-tab" type="button">إنشاء حساب</button>
+        </div>
+        <form id="login-form" class="auth-form">
+          <label class="field"><span>البريد الإلكتروني</span><input id="login-email" type="email" autocomplete="email" required></label>
+          <label class="field"><span>كلمة المرور</span><input id="login-password" type="password" autocomplete="current-password" required minlength="8"></label>
+          <button class="primary-button" type="submit">دخول</button>
+        </form>
+        <form id="register-form" class="auth-form hidden">
+          <label class="field"><span>البريد الإلكتروني</span><input id="register-email" type="email" autocomplete="email" required></label>
+          <label class="field"><span>كلمة المرور</span><input id="register-password" type="password" autocomplete="new-password" required minlength="8"></label>
+          <label class="field"><span>تأكيد كلمة المرور</span><input id="register-password-confirm" type="password" autocomplete="new-password" required minlength="8"></label>
+          <button class="primary-button" type="submit">ابدأ التجربة المجانية</button>
+        </form>
+        <div class="auth-actions" id="auth-actions" hidden>
+          <div class="auth-user-line"><strong id="auth-email">—</strong><button id="logout-button" class="secondary-button" type="button">تسجيل الخروج</button></div>
+          <div class="subscription-box" id="subscription-box">
+            <span id="subscription-label">—</span>
+            <strong id="subscription-expiry">—</strong>
+          </div>
+          <form id="redeem-form" class="redeem-form">
+            <input id="redeem-code" type="text" maxlength="16" autocomplete="off" placeholder="أدخل كود الاشتراك (16 حرفًا)" aria-label="كود الاشتراك">
+            <button class="secondary-button" type="submit">تفعيل الكود</button>
+          </form>
+          <a id="subscribe-link" class="whatsapp-cta hidden" href="#" target="_blank" rel="noopener noreferrer">اشترك الآن</a>
+        </div>
+      </div>
+    </section>
+
+    <main id="analysis" class="dashboard-grid">
+      <section class="panel control-panel glass">
+        <div class="section-kicker">تحليل متعدد الإطارات</div>
+        <h1>تحليل السوق</h1>
+        <p class="muted">تحليل متعدد الأطر من بيانات OHLC الحية. اختر أي زوج Forex أو Crypto أو معدن يدعمه مزود البيانات.</p>
+
+        <div class="field-grid">
+          <div class="field symbol-picker-field">
+            <span>الرمز</span>
+            <div class="symbol-picker" id="symbol-picker">
+              <div class="symbol-input-wrap">
+                <input id="symbol" type="text" value="XAU/USD" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ابحث: EUR أو XAU أو BTC..." aria-label="ابحث عن رمز السوق" aria-autocomplete="list" aria-controls="symbol-suggestions" aria-expanded="false">
+                <button id="symbol-clear" class="symbol-clear hidden" type="button" aria-label="مسح الرمز">×</button>
+              </div>
+              <div class="symbol-filters" id="symbol-filters" role="tablist" aria-label="تصنيف الرموز">
+                <button class="symbol-filter active" type="button" data-category="all" role="tab" aria-selected="true">الكل</button>
+                <button class="symbol-filter" type="button" data-category="forex" role="tab" aria-selected="false">Forex</button>
+                <button class="symbol-filter" type="button" data-category="crypto" role="tab" aria-selected="false">Crypto</button>
+                <button class="symbol-filter" type="button" data-category="metals" role="tab" aria-selected="false">المعادن</button>
+              </div>
+              <div class="symbol-suggestions hidden" id="symbol-suggestions" role="listbox" aria-label="اقتراحات الرموز"></div>
+              <div class="symbol-selected" id="symbol-selected">XAU/USD — Gold Spot</div>
+            </div>
+          </div>
+          <label class="field">
+            <span>نسبة المخاطرة</span>
+            <select id="risk-percent">
+              <option value="0.25">0.25%</option>
+              <option value="0.50">0.50%</option>
+              <option value="1">1.00%</option>
+              <option value="1.50">1.50%</option>
+              <option value="2">2.00%</option>
+              <option value="custom">مخصص</option>
+            </select>
+          </label>
+          <label class="field hidden" id="custom-risk-wrap">
+            <span>مخاطرة مخصصة %</span>
+            <input id="custom-risk" type="number" min="0.01" max="100" step="0.01" value="1">
+          </label>
+          <label class="field">
+            <span>رأس المال <small>(اختياري)</small></span>
+            <input id="capital" type="number" min="1" step="0.01" placeholder="لا حاجة لإدخال قيمة">
+          </label>
+          <label class="field">
+            <span>حجم اللوت</span>
+            <select id="lot-mode">
+              <option value="auto">Auto</option>
+              <option value="manual">Manual</option>
+            </select>
+          </label>
+          <label class="field" id="manual-lot-wrap">
+            <span>اللوت اليدوي</span>
+            <input id="lot-size" type="number" min="0.01" max="100" step="0.01" value="0.01">
+          </label>
+        </div>
+
+        <div class="cta-wrap">
+          <button id="analyze-button" class="primary-button" type="button">
+            <span class="button-icon">⌕</span>
+            <span>تحليل السوق</span>
+            <span class="button-arrow">‹</span>
+          </button>
+          <div class="cta-note">لن يختار المستخدم الاستراتيجية؛ النظام يقارن الاستراتيجيات المتاحة تلقائيًا.</div>
+        </div>
+
+        <div class="strategy-strip" aria-label="الاستراتيجيات المتاحة">
+          <div class="strategy-card"><strong>Classic</strong><span>التحليل الكلاسيكي</span></div>
+          <div class="strategy-card"><strong>SMC</strong><span>مفاهيم الأموال الذكية</span></div>
+          <div class="strategy-card"><strong>ICT</strong><span>مفاهيم ICT</span></div>
+        </div>
+      </section>
+
+      <section class="panel result-panel glass" id="market">
+        <div class="result-header">
+          <div>
+            <div class="section-kicker">نتيجة التحليل</div>
+            <h2 id="result-title">جاهز لتحليل السوق</h2>
+            <p class="muted" id="result-subtitle">اضغط «تحليل السوق» للحصول على نتيجة فعلية من واجهة API.</p>
+          </div>
+          <div class="analysis-time"><span>وقت التحليل</span><strong id="analysis-time">—</strong><small>UTC+3 بغداد</small></div>
+        </div>
+
+        <div class="state-banner" id="state-banner" data-state="initial">
+          <div class="state-icon" id="state-icon">✦</div>
+          <div><strong id="state-label">جاهز</strong><span id="state-detail">لم يتم تشغيل التحليل بعد.</span></div>
+        </div>
+
+        <div class="signal-hero">
+          <div class="direction-card" id="direction-card">
+            <span class="eyebrow">القرار النهائي</span>
+            <strong id="direction">—</strong>
+            <span id="direction-symbol">—</span>
+          </div>
+          <div class="confidence-card">
+            <div class="confidence-ring" id="confidence-ring"><span id="confidence">0%</span></div>
+            <div><strong id="confidence-label">—</strong><span>درجة الثقة</span></div>
+          </div>
+          <div class="strategy-card-large">
+            <span class="eyebrow">الاستراتيجية المختارة</span>
+            <strong id="selected-strategy">—</strong>
+            <span id="selected-variant">—</span>
+          </div>
+        </div>
+
+        <div class="price-grid">
+          <div class="price-row"><span>سعر الدخول (Entry)</span><strong id="entry">—</strong><button data-copy="entry" class="copy-button">نسخ</button></div>
+          <div class="price-row"><span>الهدف (Take Profit)</span><strong id="target">—</strong><button data-copy="target" class="copy-button">نسخ</button></div>
+          <div class="price-row"><span>وقف الخسارة (Stop Loss)</span><strong id="stop-loss">—</strong><button data-copy="stop-loss" class="copy-button">نسخ</button></div>
+          <div class="price-row"><span>حجم اللوت (Lot Size)</span><strong id="lot">—</strong><span></span></div>
+        </div>
+
+        <div class="capital-card" id="capital-impact" hidden>
+          <div><span>الربح المتوقع عند الهدف</span><strong id="profit-impact">—</strong></div>
+          <div><span>الخسارة عند وقف الخسارة</span><strong id="loss-impact">—</strong></div>
+          <div><span>مبلغ المخاطرة</span><strong id="risk-impact">—</strong></div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="chart-head"><div><span class="chart-title">الرسم البياني</span><small id="chart-meta">—</small></div><span class="timeframe-badge" id="timeframe-badge">AUTO</span></div>
+          <div class="chart-wrap"><canvas id="chart" aria-label="رسم شموع السوق"></canvas><div class="chart-empty" id="chart-empty">سيظهر الرسم بعد تشغيل تحليل حقيقي.</div></div>
+        </div>
+
+        <div class="lower-grid">
+          <div class="reasons-card">
+            <div class="card-title">أسباب هذا القرار</div>
+            <ul id="reasons" class="reason-list"><li>لا توجد بيانات حتى الآن.</li></ul>
+          </div>
+          <div class="comparison-card">
+            <div class="card-title">مقارنة الأطر الزمنية</div>
+            <div class="comparison-table-wrap"><table><thead><tr><th>الإطار</th><th>الاتجاه</th><th>الثقة</th><th>الاستراتيجية</th></tr></thead><tbody id="comparison-body"><tr><td colspan="4">لا توجد نتيجة بعد.</td></tr></tbody></table></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">تم النسخ</div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

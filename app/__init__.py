@@ -1,0 +1,1 @@
+"""EDGE HUNTER application package."""
