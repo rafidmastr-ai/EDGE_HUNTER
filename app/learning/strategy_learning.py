@@ -474,7 +474,10 @@ def _mean(values: Sequence[float]) -> float:
 class StrategyLearningTrainer:
     """Train one logistic-regression filter per strategy with an OOS promotion gate."""
 
-    THRESHOLD_GRID = tuple(round(0.30 + 0.02 * step, 2) for step in range(21))  # 0.30 .. 0.70
+    # Candidate thresholds are quantiles of the VALIDATION probabilities: keep the
+    # top 100%, 95%, ... 20% of setups. Fixed probability levels would not work
+    # for strategies whose base win rate is far from 50%.
+    KEEP_QUANTILES = tuple(round(0.05 * step, 2) for step in range(17))  # drop 0% .. 80%
 
     def __init__(
         self,
@@ -557,8 +560,15 @@ class StrategyLearningTrainer:
 
         # Threshold chosen on VALIDATION only; OOS stays untouched until the gate.
         minimum_kept = max(10, int(len(validation) * self.min_keep_fraction))
+        probabilities = sorted(draft.probability(item.features) for item in validation)
+        candidates = sorted(
+            {
+                round(min(0.999, max(0.001, probabilities[min(len(probabilities) - 1, int(q * len(probabilities)))])), 4)
+                for q in self.KEEP_QUANTILES
+            }
+        )
         best_threshold, best = None, None
-        for threshold in self.THRESHOLD_GRID:
+        for threshold in candidates:
             result = evaluate(validation, threshold)
             if result["kept"] < minimum_kept:
                 continue
@@ -913,6 +923,21 @@ def collect_historical_samples(
     return samples, {"files": files}
 
 
+def baseline_breakdown(samples: Iterable[StrategySample]) -> dict[str, dict[str, dict[str, float]]]:
+    """Unfiltered results per strategy and symbol: setups, win rate, average R."""
+    grouped: dict[tuple[str, str], list[StrategySample]] = {}
+    for sample in samples:
+        grouped.setdefault((sample.strategy, sample.symbol), []).append(sample)
+    output: dict[str, dict[str, dict[str, float]]] = {}
+    for (strategy, symbol), items in sorted(grouped.items()):
+        output.setdefault(strategy, {})[symbol] = {
+            "setups": len(items),
+            "win_rate": round(_mean([item.won for item in items]), 4),
+            "avg_r": round(_mean([item.r_multiple for item in items]), 4),
+        }
+    return output
+
+
 def run_training(
     *,
     data_dir: Path,
@@ -943,6 +968,7 @@ def run_training(
     summary.update(historical_summary)
 
     live = live_samples(database)
+    summary["baseline_by_symbol"] = baseline_breakdown([*historical, *live])
     summary["historical_samples"] = len(historical)
     summary["live_samples"] = len(live)
     report(f"[3/4] Training per-strategy models on {len(historical)} historical + {len(live)} live setups ...")
@@ -961,6 +987,13 @@ def format_report(bundle: StrategyLearningBundle) -> str:
         f"Historical setups: {bundle.data_summary.get('historical_samples')}  |  Live setups: {bundle.data_summary.get('live_samples')}",
         "",
     ]
+    breakdown = bundle.data_summary.get("baseline_by_symbol") or {}
+    if breakdown:
+        lines.append("Strategy results without ML, per symbol (setups | win rate | avg R per setup):")
+        for strategy in LEARNED_STRATEGIES:
+            for symbol, row in sorted((breakdown.get(strategy) or {}).items()):
+                lines.append(f"  {strategy:<8} {symbol:<8} {row['setups']:>6} | {row['win_rate']:.3f} | {row['avg_r']:+.4f}")
+        lines.append("")
     for name in LEARNED_STRATEGIES:
         model = bundle.models.get(name)
         if model is None:
@@ -989,6 +1022,7 @@ __all__ = [
     "HistoricalSampleBuilder",
     "LEARNED_STRATEGIES",
     "LiveOutcomeResolver",
+    "baseline_breakdown",
     "LiveSignalRecorder",
     "StrategyLearningBundle",
     "StrategyLearningError",

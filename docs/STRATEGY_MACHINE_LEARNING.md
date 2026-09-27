@@ -38,7 +38,9 @@ model file automatically within about 30 seconds; no restart is needed.
 
 Samples are split chronologically: TRAIN 60% / VALIDATION 20% / OOS 20%. The
 scaler and model are fitted on TRAIN only and the threshold is chosen on
-VALIDATION. A model becomes `ACTIVE` only if it raises the average R per setup by
+VALIDATION among quantiles of the predicted probabilities (keep the top 100%,
+95%, ... 20% of setups), so strategies with a low base win rate are handled.
+The report also lists each strategy's unfiltered results per symbol. A model becomes `ACTIVE` only if it raises the average R per setup by
 at least 0.02R on both VALIDATION and the untouched OOS segment, while keeping
 enough setups. Otherwise the model is `REJECTED` (or `INSUFFICIENT_DATA`) and the
 strategy runs exactly as before. Status is visible in `/api/meta` →

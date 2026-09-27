@@ -234,6 +234,19 @@ class TrainerTests(unittest.TestCase):
         self.assertGreater(oos["filtered_avg_r"], oos["baseline_avg_r"] + 0.02)
         self.assertEqual(bundle.models["Classic"].status, STATUS_INSUFFICIENT_DATA)
 
+    def test_low_base_win_rate_strategy_can_still_be_learned(self) -> None:
+        # ~20% winners: model probabilities stay far below 0.5, so thresholds must
+        # come from the probability distribution, not from fixed levels.
+        rng = random.Random(9)
+        samples = []
+        for sample in synthetic_samples(3000, informative=False, seed=9):
+            won = 1 if sample.features["rsi_directional"] + rng.gauss(0, 0.4) > 1.2 else 0
+            samples.append(replace(sample, won=won, r_multiple=1.75 if won else -1.0))
+        self.assertLess(sum(item.won for item in samples) / len(samples), 0.25)
+        model = StrategyLearningTrainer(min_samples=200).train(samples).models["ICT"]
+        self.assertEqual(model.status, STATUS_ACTIVE, model.reason)
+        self.assertLess(model.threshold, 0.5)
+
     def test_noise_is_rejected_and_strategy_stays_unfiltered(self) -> None:
         model = StrategyLearningTrainer(min_samples=200).train(synthetic_samples(1500, informative=False)).models["ICT"]
         self.assertEqual(model.status, STATUS_REJECTED)
