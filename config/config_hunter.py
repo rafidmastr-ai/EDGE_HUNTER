@@ -115,6 +115,10 @@ class Settings:
     strategy_ml_model_path: Path = PROJECT_ROOT / "data" / "models" / "strategy_learning.json"
     strategy_ml_record_live: bool = True
     strategy_ml_horizon_bars: int = 48
+    # Cost-aware gate: withhold setups whose estimated round-trip cost exceeds
+    # cost_gate_max_cost_r of the stop distance (see docs/COST_GATE_AND_DATA_CLEANING.md).
+    cost_gate_enabled: bool = True
+    cost_gate_max_cost_r: float = 0.10
 
 
 def load_settings() -> Settings:
@@ -215,4 +219,6 @@ def load_settings() -> Settings:
         ),
         strategy_ml_record_live=_env_bool("EDGE_HUNTER_STRATEGY_ML_RECORD_LIVE", True),
         strategy_ml_horizon_bars=_env_int("EDGE_HUNTER_STRATEGY_ML_HORIZON_BARS", 48, 5, 500),
+        cost_gate_enabled=_env_bool("EDGE_HUNTER_COST_GATE_ENABLED", True),
+        cost_gate_max_cost_r=_env_float("EDGE_HUNTER_COST_GATE_MAX_COST_R", 0.10, 0.01, 1.0),
     )

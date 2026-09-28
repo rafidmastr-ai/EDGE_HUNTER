@@ -22,6 +22,7 @@ class DataQualityReport:
     invalid_price_rows: int = 0
     invalid_ohlc_rows: int = 0
     gaps: int = 0
+    synthetic_flat_bars_removed: int = 0
     errors: list[str] = field(default_factory=list)
 
     @property

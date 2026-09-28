@@ -18,10 +18,12 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Iterable
 
+from app.data.cleaning import drop_synthetic_flat_runs
 from app.data.schema import CanonicalOHLC
 from app.providers.live_provider import LiveMarketDataProvider
 from app.providers.models import LiveProviderError
 from app.features.engine import FeatureEngine
+from app.signals.costs import CostGate
 from app.signals.engine import SignalConfidenceEngine, SignalFilter
 from app.signals.models import FinalSignalDecision
 from app.strategies.models import SignalState, StrategyContext, StrategySignal
@@ -81,13 +83,16 @@ class LocalOHLCAnalysisService:
         data_mode: str = "local",
         live_history_bars: int = 800,
         signal_filter: SignalFilter | None = None,
+        cost_gate: CostGate | None = None,
     ) -> None:
         self.project_root = Path(__file__).resolve().parents[2]
         self.data_root = data_root or (self.project_root / "data" / "raw")
         self.feature_engine = FeatureEngine()
         # Optional learned per-strategy filter (read-only inference of approved models).
         self.signal_filter = signal_filter
-        self.signal_engine = SignalConfidenceEngine(StrategyRegistry.default(), signal_filter=signal_filter)
+        # Optional cost-aware gate: withholds setups whose trading cost is too large vs the stop.
+        self.cost_gate = cost_gate
+        self.signal_engine = SignalConfidenceEngine(StrategyRegistry.default(), signal_filter=signal_filter, cost_gate=cost_gate)
         self.live_provider = live_provider
         self.data_mode = data_mode if data_mode in {"local", "live"} else "local"
         self.live_history_bars = max(50, min(int(live_history_bars), 5000))
@@ -202,10 +207,28 @@ class LocalOHLCAnalysisService:
                     "financial_values_hidden_without_capital": request.capital is None,
                     "live_provider_health": self.live_health(),
                     "strategy_learning": self.strategy_learning_status(),
+                    "cost_gate": self._cost_gate_summary(timeframe_results),
+                    "trade_cost": _selected_trade_cost(decision),
                 },
             }
         )
         return response, observations
+
+    def _cost_gate_summary(self, results: dict[str, FinalSignalDecision]) -> dict:
+        if self.cost_gate is None:
+            return {"enabled": False}
+        withheld = [
+            {"timeframe": tf, "strategy": item.strategy_name, "cost_r": item.signal.metadata.get("cost_r")}
+            for tf, result in results.items()
+            for item in result.strategy_evaluations
+            if item.signal.metadata.get("cost_decision") == "rejected"
+        ]
+        return {
+            "enabled": True,
+            "max_cost_r": self.cost_gate.max_cost_r,
+            "withheld_setups": withheld,
+            "note": "setups whose estimated spread+slippage+commission exceeds max_cost_r of the stop distance are withheld",
+        }
 
     def strategy_learning_status(self) -> dict:
         status = getattr(self.signal_filter, "status", None)
@@ -323,8 +346,9 @@ class LocalOHLCAnalysisService:
             ordered = {}
             for timestamp, bar in tail:
                 ordered.setdefault(timestamp, bar)
-            for timestamp in sorted(ordered):
-                yield ordered[timestamp]
+            # Closed-market filler (flat candles repeating the last close) is not market data.
+            cleaned, _ = drop_synthetic_flat_runs([ordered[timestamp] for timestamp in sorted(ordered)])
+            yield from cleaned
 
     @staticmethod
     def _resample(bars: tuple[CanonicalOHLC, ...] | list[CanonicalOHLC], timeframe: str) -> list[CanonicalOHLC]:
@@ -428,6 +452,20 @@ class LocalOHLCAnalysisService:
             "variant": decision.selected_variant,
         }
         return representative
+
+
+def _selected_trade_cost(decision: FinalSignalDecision) -> dict | None:
+    """Cost annotation of the setup behind the final decision (None if no trade / no gate)."""
+    if not decision.is_trade_signal:
+        return None
+    for item in decision.strategy_evaluations:
+        if item.strategy_name == decision.selected_strategy and item.variant == decision.selected_variant:
+            meta = item.signal.metadata
+            if "cost_r" not in meta:
+                return None
+            keys = ("cost_estimate", "cost_basis", "cost_r", "cost_max_r", "min_stop_distance", "net_risk_reward_after_cost")
+            return {key: meta.get(key) for key in keys}
+    return None
 
 
 def _floor_timeframe(value: datetime, minutes: int) -> datetime:

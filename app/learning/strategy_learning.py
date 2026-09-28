@@ -871,11 +871,14 @@ def read_ohlc_csv(path: Path) -> list[CanonicalOHLC]:
     from app.data.loaders.csv_loader import CSVLoader
     from app.data.normalizers.ohlc_normalizer import normalize_row
 
+    from app.data.cleaning import drop_synthetic_flat_runs
+
     unique: dict[datetime, CanonicalOHLC] = {}
     for row in CSVLoader().read_rows(Path(path)):
         bar = normalize_row(row)
         unique.setdefault(bar.timestamp, bar)
-    return valid_ohlc(unique[key] for key in sorted(unique))
+    # Closed-market filler (flat candles repeating the last close) is not market data.
+    return drop_synthetic_flat_runs(valid_ohlc(unique[key] for key in sorted(unique)))[0]
 
 
 def collect_historical_samples(

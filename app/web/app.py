@@ -29,6 +29,7 @@ from app.auth.service import AuthError, AuthService
 from app.db.database import Database
 from app.db.migrations import MigrationRunner
 from app.learning.strategy_learning import LiveSignalRecorder, StrategyLearningFilter
+from app.signals.costs import CostGate
 from app.web.analysis_service import DataUnavailableError, LiveDataUnavailableError, LocalOHLCAnalysisService
 from app.web.admin_code_diagnostics import save_admin_code_generation_diagnostic
 from app.web.schemas import AnalysisResponse, AnalyzeRequest, DEFAULT_SYMBOLS, RISK_PRESETS
@@ -178,6 +179,8 @@ def create_web_app(
         # Learned filters apply to live analysis only; "local" is the explicit
         # offline/test mode and stays independent of locally trained model files.
         signal_filter=strategy_filter if settings.data_mode == "live" else None,
+        # Cost-aware gate is a deterministic rule (not a learned model): both modes.
+        cost_gate=CostGate(max_cost_r=settings.cost_gate_max_cost_r) if settings.cost_gate_enabled else None,
     )
     app.state.analysis_service = service
     app.state.strategy_filter = strategy_filter

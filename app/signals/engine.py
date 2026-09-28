@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Mapping, Protocol, Sequence
 
 from app.signals.config import ConfidenceConfig
+from app.signals.costs import CostGate
 from app.signals.models import FinalSignalDecision, FinalSignalDirection, StrategyEvaluation
 from app.signals.scoring import EvidenceOverrides, score_signal_evidence
 from app.signals.selector import select_direction
@@ -32,13 +33,23 @@ class SignalConfidenceEngine:
     registry: StrategyRegistry
     config: ConfidenceConfig = ConfidenceConfig()
     signal_filter: SignalFilter | None = None
+    # Optional cost-aware gate (withholds setups whose cost is too large vs the stop).
+    cost_gate: CostGate | None = None
 
     def evaluate_signals(self, context: StrategyContext) -> tuple[tuple[StrategySignal, ...], tuple[StrategySignal, ...]]:
-        """Return (raw strategy outputs, outputs after the optional filter)."""
+        """Return (raw strategy outputs, outputs after the optional filter and cost gate)."""
         raw = self.registry.evaluate_all(context)
-        if self.signal_filter is None:
-            return raw, raw
-        filtered = tuple(self.signal_filter.apply(raw, context))
+        filtered = raw
+        if self.signal_filter is not None:
+            filtered = tuple(self.signal_filter.apply(raw, context))
+            self._check_withhold_or_annotate_only(raw, filtered)
+        if self.cost_gate is not None:
+            filtered = self.cost_gate.apply(filtered)
+            self._check_withhold_or_annotate_only(raw, filtered)
+        return raw, filtered
+
+    @staticmethod
+    def _check_withhold_or_annotate_only(raw: Sequence[StrategySignal], filtered: Sequence[StrategySignal]) -> None:
         if len(filtered) != len(raw) or any(
             item.state == SignalState.SIGNAL
             and (
@@ -49,7 +60,6 @@ class SignalConfidenceEngine:
             for original, item in zip(raw, filtered)
         ):
             raise ValueError("signal filter may only withhold or annotate strategy outputs")
-        return raw, filtered
 
     def analyze(
         self,

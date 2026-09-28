@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app.data.cleaning import drop_synthetic_flat_runs
 from app.data.loaders.csv_loader import CSVLoader
 from app.data.normalizers.ohlc_normalizer import normalize_row
 from app.data.schema import CanonicalOHLC
@@ -34,6 +35,8 @@ class HistoricalDataPipeline:
         for bar in bars:
             unique.setdefault(bar.timestamp, bar)
 
-        cleaned = list(unique.values())
+        # Drop synthetic closed-market filler (flat candles repeating the last close).
+        cleaned, synthetic = drop_synthetic_flat_runs(list(unique.values()))
         report = self.validator.validate(cleaned, symbol, timeframe)
+        report.synthetic_flat_bars_removed = synthetic
         return cleaned, report
