@@ -180,6 +180,8 @@ class Orders:
     trail_distance: np.ndarray | None = None  # price distance of an ATR trail, NaN = none
     breakeven_r: float | None = None
     tag: str = ""
+    stop_distance: np.ndarray | None = None  # if set: stop = fill price -/+ distance (overrides ``stop``)
+    target_rr: np.ndarray | None = None  # if set: target = fill price +/- rr * risk (overrides ``target``)
 
     def __len__(self) -> int:
         return len(self.signal_time)
@@ -233,29 +235,36 @@ def _clock(seconds: int, hm: tuple[int, int]) -> int:
     return seconds // DAY * DAY + hm[0] * 3600 + hm[1] * 60
 
 
-def simulate(exec_bars: Bars, orders: Orders, config: ExecutionConfig = ExecutionConfig()) -> Trades:
-    """Execute ``orders`` on ``exec_bars`` (normally M1) under ``config``."""
+def simulate(
+    exec_bars: Bars, orders: Orders, config: ExecutionConfig = ExecutionConfig(), stats: dict | None = None
+) -> Trades:
+    """Execute ``orders`` on ``exec_bars`` (normally M1) under ``config``.
+
+    ``stats`` (optional) receives counts of orders that did not become trades, by reason.
+    """
     t, o, h, l, c = exec_bars.open_time, exec_bars.open, exec_bars.high, exec_bars.low, exec_bars.close
     never = np.iinfo(np.int64).max
     rows: list[tuple] = []
     free_at = -1
+    skipped = {"position_open": 0, "after_last_entry": 0, "no_session_left": 0, "limit_not_filled": 0, "invalid_stop_or_target": 0}
     for k in np.argsort(orders.signal_time, kind="stable"):
         signal_time = int(orders.signal_time[k])
         if config.one_position and signal_time < free_at:
+            skipped["position_open"] += 1
             continue
         if config.last_entry is not None and signal_time > _clock(signal_time, config.last_entry):
+            skipped["after_last_entry"] += 1
             continue
         d = int(orders.direction[k])
         stop, target = float(orders.stop[k]), float(orders.target[k])
         start = int(np.searchsorted(t, signal_time, "left"))
-        if start >= len(t):
-            continue
         session_end = _clock(signal_time, config.session_exit) if config.session_exit is not None else never
         end = int(np.searchsorted(t, session_end, "left")) if session_end != never else len(t)
         if config.horizon_bars is not None:
             end = min(end, start + config.horizon_bars)
         end = min(end, len(t))
-        if end <= start:
+        if start >= len(t) or end <= start:
+            skipped["no_session_left"] += 1
             continue
 
         limit = None if orders.limit is None or np.isnan(orders.limit[k]) else float(orders.limit[k])
@@ -266,11 +275,18 @@ def simulate(exec_bars: Bars, orders: Orders, config: ExecutionConfig = Executio
             expiry = min(end, int(np.searchsorted(t, signal_time + orders.expiry_seconds, "left")))
             touched = l[start:expiry] <= limit if d > 0 else h[start:expiry] >= limit
             if not touched.any():
+                skipped["limit_not_filled"] += 1
                 continue
             fill = start + int(np.argmax(touched))
             entry = min(limit, float(o[fill])) if d > 0 else max(limit, float(o[fill]))
+        if orders.stop_distance is not None and not np.isnan(orders.stop_distance[k]):
+            stop = entry - d * float(orders.stop_distance[k])
         risk = (entry - stop) * d
-        if risk <= 0 or (not np.isnan(target) and (target - entry) * d <= 0):
+        if orders.target_rr is not None and not np.isnan(orders.target_rr[k]) and risk > 1e-9 * max(1.0, abs(entry)):
+            target = entry + d * float(orders.target_rr[k]) * risk
+        # risk below ~1e-9 of price is floating-point noise (stop == entry), not a real stop
+        if not risk > 1e-9 * max(1.0, abs(entry)) or (not np.isnan(target) and (target - entry) * d <= 0):
+            skipped["invalid_stop_or_target"] += 1
             continue
 
         def stop_price(level: float, i: int) -> float:
@@ -320,6 +336,8 @@ def simulate(exec_bars: Bars, orders: Orders, config: ExecutionConfig = Executio
         gross = (exit_price - entry) * d / risk
         rows.append((signal_time, int(t[fill]), int(t[exit_index]), d, entry, stop, exit_price, gross, gross - config.cost / risk, outcome))
         free_at = int(t[exit_index]) + exec_bars.period
+    if stats is not None:
+        stats.update(skipped)
     names = list(Trades.__dataclass_fields__)
     ints = {"signal_time", "entry_time", "exit_time", "direction", "outcome"}
     if not rows:
@@ -338,6 +356,50 @@ def summarize(trades: Trades) -> dict:
         for t, r, o in zip(trades.entry_time, trades.r_net, trades.outcome)
     ]
     return performance(items)
+
+
+def full_metrics(trades: Trades, *, capital: float = 10_000.0, risk_pct: float = 1.0) -> dict:
+    """Trade statistics in R plus money figures for a fixed ``risk_pct`` of ``capital`` per trade (no compounding)."""
+    n = len(trades)
+    if not n:
+        return {"trades": 0}
+    order = np.argsort(trades.entry_time, kind="stable")
+    r = trades.r_net[order]
+    wins, losses = r[r > 0], r[r < 0]
+    equity = np.concatenate([[0.0], np.cumsum(r)])
+    drawdown_r = float(np.max(np.maximum.accumulate(equity) - equity))
+
+    def longest(mask: np.ndarray) -> int:
+        best = run = 0
+        for flag in mask:
+            run = run + 1 if flag else 0
+            best = max(best, run)
+        return best
+
+    risk_money = capital * risk_pct / 100.0
+    durations = (trades.exit_time - trades.entry_time)[order] / 60.0
+    ci = summarize(trades).get("avg_r_ci95")
+    return {
+        "trades": n,
+        "win_rate": round(float((r > 0).mean()), 4),
+        "profit_factor": round(float(wins.sum() / -losses.sum()), 3) if len(losses) else None,
+        "expectancy_r": round(float(r.mean()), 4),
+        "avg_r": round(float(r.mean()), 4),
+        "median_r": round(float(np.median(r)), 4),
+        "avg_r_ci95": ci,
+        "net_r": round(float(r.sum()), 2),
+        "net_return_pct": round(float(r.sum()) * risk_pct, 2),
+        "net_profit_usd": round(float(r.sum()) * risk_money, 2),
+        "gross_profit_usd": round(float(wins.sum()) * risk_money, 2),
+        "gross_loss_usd": round(float(losses.sum()) * risk_money, 2),
+        "max_drawdown_r": round(drawdown_r, 2),
+        "max_drawdown_pct": round(drawdown_r * risk_pct, 2),
+        "avg_duration_min": round(float(durations.mean()), 1),
+        "longest_win_streak": longest(r > 0),
+        "longest_loss_streak": longest(r <= 0),
+        "long_trades": int((trades.direction > 0).sum()),
+        "short_trades": int((trades.direction < 0).sum()),
+    }
 
 
 def by_year(trades: Trades) -> dict[int, dict]:
@@ -422,6 +484,7 @@ __all__ = [
     "align_to",
     "atr",
     "by_year",
+    "full_metrics",
     "daily_levels",
     "ema",
     "iter_grid",
