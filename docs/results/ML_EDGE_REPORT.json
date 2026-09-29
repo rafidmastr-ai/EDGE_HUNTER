@@ -1,0 +1,1684 @@
+{
+ "symbols": [
+  "AUDUSD",
+  "EURJPY",
+  "EURUSD",
+  "GBPUSD",
+  "NZDUSD",
+  "XAUUSD"
+ ],
+ "features": [
+  "atr_m15_over_d1",
+  "day_of_week",
+  "day_position",
+  "day_range_over_atr_d1",
+  "dist_asia_high",
+  "dist_asia_low",
+  "dist_ema200_h1",
+  "dist_ema200_h4",
+  "dist_ema200_m15",
+  "dist_ema20_h1",
+  "dist_ema20_m15",
+  "dist_ema50_h1",
+  "dist_ema50_h4",
+  "dist_ema50_m15",
+  "dist_pdh",
+  "dist_pdl",
+  "ema200_slope_m15",
+  "er_d1_10",
+  "er_h1_24",
+  "er_m15_16",
+  "gold_ret_4",
+  "h1_range8_over_atr",
+  "hour_cos",
+  "hour_sin",
+  "macd_hist_m15",
+  "minutes_since_0700",
+  "quote_is_usd",
+  "ret_d1_1",
+  "ret_d1_5",
+  "ret_h4_1",
+  "ret_m15_1",
+  "ret_m15_16",
+  "ret_m15_4",
+  "ret_m15_64",
+  "risk_on_4",
+  "rsi_h1",
+  "rsi_m15",
+  "rv_1d_over_20d",
+  "spread_z",
+  "tick_volume_z",
+  "us_dst",
+  "usd_strength_16",
+  "usd_strength_4",
+  "vol_level_z"
+ ],
+ "feature_version": 1,
+ "folds": [
+  [
+   "2021-01-01 00:00",
+   "2022-01-01 00:00"
+  ],
+  [
+   "2022-01-01 00:00",
+   "2023-01-01 00:00"
+  ],
+  [
+   "2023-01-01 00:00",
+   "2023-11-14 23:02"
+  ]
+ ],
+ "dev_end": "2023-11-14 23:02",
+ "oos_end": "2025-01-01 00:00",
+ "stage1": {
+  "b1_h8|small": {
+   "mean_ic": 0.015154807393176548,
+   "ics": [
+    -0.0007,
+    0.0272,
+    0.0071,
+    -0.0115,
+    0.0058,
+    0.019,
+    0.0336,
+    0.0376,
+    -0.0109,
+    -0.0043,
+    0.007,
+    0.0449,
+    0.0245,
+    0.0311,
+    0.0033,
+    0.0177,
+    0.0489,
+    -0.0076
+   ]
+  },
+  "b1_h8|medium": {
+   "mean_ic": 0.009937785621257618,
+   "ics": [
+    -0.0095,
+    0.0325,
+    0.0136,
+    -0.0051,
+    0.0239,
+    0.0303,
+    0.021,
+    0.0201,
+    -0.0078,
+    -0.032,
+    -0.0151,
+    0.0129,
+    0.0058,
+    0.0383,
+    -0.0003,
+    0.0119,
+    0.0267,
+    0.0116
+   ]
+  },
+  "b1_h8|large": {
+   "mean_ic": 0.009484741610256643,
+   "ics": [
+    -0.0043,
+    0.0364,
+    0.0131,
+    -0.0082,
+    0.0205,
+    0.0346,
+    0.0102,
+    0.0248,
+    -0.0181,
+    -0.0447,
+    -0.0049,
+    -0.0042,
+    0.0192,
+    0.0233,
+    0.0112,
+    0.0134,
+    0.0381,
+    0.0105
+   ]
+  },
+  "b1_h16|small": {
+   "mean_ic": 0.012001753307529743,
+   "ics": [
+    -0.0093,
+    0.0061,
+    0.0136,
+    -0.0346,
+    0.0049,
+    0.0198,
+    0.0346,
+    0.0506,
+    -0.0045,
+    -0.018,
+    -0.003,
+    0.035,
+    0.0268,
+    0.034,
+    0.0059,
+    0.0218,
+    0.0466,
+    -0.0142
+   ]
+  },
+  "b1_h16|medium": {
+   "mean_ic": 0.011104002511917059,
+   "ics": [
+    -0.0141,
+    0.0097,
+    0.015,
+    -0.0266,
+    0.0106,
+    0.0192,
+    0.0354,
+    0.0299,
+    -0.0153,
+    -0.022,
+    -0.0192,
+    0.0185,
+    0.0193,
+    0.0441,
+    0.0209,
+    0.0277,
+    0.0496,
+    -0.0029
+   ]
+  },
+  "b1_h16|large": {
+   "mean_ic": 0.009306470757384295,
+   "ics": [
+    -0.0061,
+    0.0259,
+    0.0076,
+    -0.0228,
+    0.0163,
+    0.0155,
+    0.0305,
+    0.0297,
+    -0.0148,
+    -0.0362,
+    -0.0062,
+    0.0063,
+    0.0168,
+    0.0315,
+    0.0132,
+    0.0207,
+    0.0477,
+    -0.0081
+   ]
+  },
+  "b2_h8|small": {
+   "mean_ic": 0.007033291388883908,
+   "ics": [
+    -0.0059,
+    0.0046,
+    -0.0071,
+    -0.0163,
+    0.0096,
+    -0.001,
+    -0.0013,
+    0.007,
+    0.015,
+    -0.0175,
+    -0.0176,
+    0.028,
+    0.0369,
+    -0.0126,
+    0.0174,
+    0.0264,
+    0.0568,
+    0.0039
+   ]
+  },
+  "b2_h8|medium": {
+   "mean_ic": 0.00995340126272406,
+   "ics": [
+    0.0159,
+    0.0088,
+    -0.0156,
+    -0.001,
+    0.0117,
+    -0.0021,
+    0.0222,
+    0.0224,
+    -0.0069,
+    -0.0056,
+    -0.0081,
+    0.0337,
+    0.0334,
+    -0.028,
+    0.0221,
+    0.0292,
+    0.0357,
+    0.0113
+   ]
+  },
+  "b2_h8|large": {
+   "mean_ic": 0.006271879295501136,
+   "ics": [
+    0.0062,
+    0.0014,
+    -0.0181,
+    -0.0161,
+    0.0065,
+    -0.0013,
+    0.0195,
+    0.0257,
+    -0.0063,
+    -0.012,
+    -0.0047,
+    0.0137,
+    0.0211,
+    0.0016,
+    0.0237,
+    0.016,
+    0.0391,
+    -0.0028
+   ]
+  },
+  "b2_h16|small": {
+   "mean_ic": 0.008683607348840355,
+   "ics": [
+    -0.016,
+    -0.0079,
+    -0.0037,
+    -0.0077,
+    -0.0074,
+    0.0044,
+    0.0216,
+    0.0432,
+    0.0171,
+    -0.0133,
+    -0.008,
+    0.0019,
+    0.0767,
+    -0.015,
+    0.0134,
+    0.0023,
+    0.0497,
+    0.0048
+   ]
+  },
+  "b2_h16|medium": {
+   "mean_ic": 0.012683098152431356,
+   "ics": [
+    0.0402,
+    0.0343,
+    -0.0015,
+    0.0051,
+    -0.0043,
+    0.0088,
+    0.0406,
+    0.0262,
+    0.0048,
+    -0.0188,
+    -0.0133,
+    -0.0199,
+    0.0772,
+    -0.0244,
+    0.029,
+    0.0226,
+    0.0313,
+    -0.0096
+   ]
+  },
+  "b2_h16|large": {
+   "mean_ic": 0.015839648691081294,
+   "ics": [
+    0.0371,
+    0.0191,
+    0.0034,
+    -0.0097,
+    0.0008,
+    0.0056,
+    0.0368,
+    0.019,
+    0.0209,
+    0.0066,
+    0.0084,
+    -0.0127,
+    0.0817,
+    -0.0074,
+    0.0213,
+    0.007,
+    0.0363,
+    0.0111
+   ]
+  }
+ },
+ "stage1_choice": {
+  "label": "b2_h16",
+  "hyper": "large"
+ },
+ "choices": {
+  "AUDUSD": {
+   "architecture": "global",
+   "keep": 0.05,
+   "trades": 1977,
+   "mean_net_r": 0.040108864569005774,
+   "per_fold": [
+    -0.008688379463581947,
+    0.0477788641933472,
+    0.09367915910507921
+   ],
+   "enabled": true,
+   "positive_folds": 2
+  },
+  "EURJPY": {
+   "architecture": "symbol",
+   "keep": 0.05,
+   "trades": 1995,
+   "mean_net_r": 0.007252533268710296,
+   "per_fold": [
+    -0.05027480353748398,
+    0.04486121214479434,
+    0.024851571965119147
+   ],
+   "enabled": true,
+   "positive_folds": 2
+  },
+  "EURUSD": {
+   "architecture": "symbol",
+   "keep": 0.02,
+   "trades": 871,
+   "mean_net_r": 0.05652468142179233,
+   "per_fold": [
+    -0.019390537706930347,
+    0.20414667724840904,
+    -0.019549052779944506
+   ],
+   "enabled": false,
+   "positive_folds": 1
+  },
+  "GBPUSD": {
+   "architecture": "stacked",
+   "keep": 0.02,
+   "trades": 884,
+   "mean_net_r": 0.047994231631489866,
+   "per_fold": [
+    0.06784972988239951,
+    -0.00373424196504719,
+    0.07690568619098041
+   ],
+   "enabled": true,
+   "positive_folds": 2
+  },
+  "NZDUSD": {
+   "architecture": "symbol",
+   "keep": 0.02,
+   "trades": 857,
+   "mean_net_r": 0.07212391684073177,
+   "per_fold": [
+    0.05096129259015256,
+    0.07829274273079696,
+    0.09148932163366152
+   ],
+   "enabled": true,
+   "positive_folds": 3
+  },
+  "XAUUSD": {
+   "architecture": "stacked",
+   "keep": 0.02,
+   "trades": 832,
+   "mean_net_r": -0.0032845047998,
+   "per_fold": [
+    -0.07269696262084623,
+    -0.09553188013656996,
+    0.14200315209572234
+   ],
+   "enabled": false,
+   "positive_folds": 1
+  }
+ },
+ "trials": {
+  "stage1_label_x_hyper": 12,
+  "stage2_arch_x_threshold_per_symbol": {
+   "AUDUSD": 12,
+   "EURJPY": 12,
+   "EURUSD": 12,
+   "GBPUSD": 12,
+   "NZDUSD": 12,
+   "XAUUSD": 12
+  },
+  "total": 84
+ },
+ "results": {
+  "AUDUSD": {
+   "validation": {
+    "trades": 569,
+    "win_rate": 0.5413,
+    "profit_factor": 1.11,
+    "expectancy_r": 0.0433,
+    "avg_r": 0.0433,
+    "median_r": 0.1433,
+    "avg_r_ci95": [
+     -0.0229,
+     0.1103
+    ],
+    "net_r": 24.61,
+    "net_return_pct": 24.61,
+    "net_profit_usd": 2461.21,
+    "gross_profit_usd": 24798.2,
+    "gross_loss_usd": -22336.99,
+    "max_drawdown_r": 19.15,
+    "max_drawdown_pct": 19.15,
+    "avg_duration_min": 114.4,
+    "longest_win_streak": 7,
+    "longest_loss_streak": 6,
+    "long_trades": 372,
+    "short_trades": 197
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": 0.0171,
+    "2022-01-01..2023-01-01": -0.0001,
+    "2023-01-01..2023-11-14": 0.1255
+   },
+   "oos": {
+    "model_enabled": true,
+    "trades": 244,
+    "win_rate": 0.5287,
+    "profit_factor": 1.099,
+    "expectancy_r": 0.0389,
+    "avg_r": 0.0389,
+    "median_r": 0.1319,
+    "avg_r_ci95": [
+     -0.0667,
+     0.1331
+    ],
+    "net_r": 9.49,
+    "net_return_pct": 9.49,
+    "net_profit_usd": 949.06,
+    "gross_profit_usd": 10501.03,
+    "gross_loss_usd": -9551.97,
+    "max_drawdown_r": 9.07,
+    "max_drawdown_pct": 9.07,
+    "avg_duration_min": 118.4,
+    "longest_win_streak": 7,
+    "longest_loss_streak": 7,
+    "long_trades": 143,
+    "short_trades": 101,
+    "avg_r_sens_mid": -0.0026,
+    "avg_r_sens_high": -0.1062,
+    "benchmarks": {
+     "always_long": 0.0518,
+     "always_short": -0.1047,
+     "random_direction_mean_of_20": -0.0478
+    }
+   },
+   "forward_2025": {
+    "model_enabled": true,
+    "trades": 131,
+    "win_rate": 0.4351,
+    "profit_factor": 0.701,
+    "expectancy_r": -0.1568,
+    "avg_r": -0.1568,
+    "median_r": -0.2921,
+    "avg_r_ci95": [
+     -0.2874,
+     -0.0448
+    ],
+    "net_r": -20.53,
+    "net_return_pct": -20.53,
+    "net_profit_usd": -2053.46,
+    "gross_profit_usd": 4808.68,
+    "gross_loss_usd": -6862.14,
+    "max_drawdown_r": 21.88,
+    "max_drawdown_pct": 21.88,
+    "avg_duration_min": 100.9,
+    "longest_win_streak": 6,
+    "longest_loss_streak": 5,
+    "long_trades": 88,
+    "short_trades": 43,
+    "avg_r_sens_mid": -0.1932,
+    "avg_r_sens_high": -0.2841,
+    "benchmarks": {
+     "always_long": -0.1726,
+     "always_short": 0.1328,
+     "random_direction_mean_of_20": -0.0214
+    }
+   },
+   "reload_identical_decisions": true
+  },
+  "EURJPY": {
+   "validation": {
+    "trades": 565,
+    "win_rate": 0.5469,
+    "profit_factor": 1.122,
+    "expectancy_r": 0.0453,
+    "avg_r": 0.0453,
+    "median_r": 0.1061,
+    "avg_r_ci95": [
+     -0.0237,
+     0.106
+    ],
+    "net_r": 25.59,
+    "net_return_pct": 25.59,
+    "net_profit_usd": 2559.42,
+    "gross_profit_usd": 23538.52,
+    "gross_loss_usd": -20979.1,
+    "max_drawdown_r": 10.06,
+    "max_drawdown_pct": 10.06,
+    "avg_duration_min": 113.1,
+    "longest_win_streak": 10,
+    "longest_loss_streak": 7,
+    "long_trades": 288,
+    "short_trades": 277
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": 0.0831,
+    "2022-01-01..2023-01-01": 0.0282,
+    "2023-01-01..2023-11-14": 0.0262
+   },
+   "oos": {
+    "model_enabled": true,
+    "trades": 219,
+    "win_rate": 0.5205,
+    "profit_factor": 1.075,
+    "expectancy_r": 0.0296,
+    "avg_r": 0.0296,
+    "median_r": 0.2019,
+    "avg_r_ci95": [
+     -0.0753,
+     0.1369
+    ],
+    "net_r": 6.47,
+    "net_return_pct": 6.47,
+    "net_profit_usd": 647.38,
+    "gross_profit_usd": 9309.95,
+    "gross_loss_usd": -8662.57,
+    "max_drawdown_r": 8.71,
+    "max_drawdown_pct": 8.71,
+    "avg_duration_min": 123.0,
+    "longest_win_streak": 8,
+    "longest_loss_streak": 9,
+    "long_trades": 116,
+    "short_trades": 103,
+    "avg_r_sens_mid": 0.0119,
+    "avg_r_sens_high": -0.0321,
+    "benchmarks": {
+     "always_long": -0.0145,
+     "always_short": 0.0051,
+     "random_direction_mean_of_20": -0.0053
+    }
+   },
+   "forward_2025": {
+    "model_enabled": true,
+    "trades": 142,
+    "win_rate": 0.5704,
+    "profit_factor": 1.346,
+    "expectancy_r": 0.1287,
+    "avg_r": 0.1287,
+    "median_r": 0.5168,
+    "avg_r_ci95": [
+     -0.0393,
+     0.3054
+    ],
+    "net_r": 18.28,
+    "net_return_pct": 18.28,
+    "net_profit_usd": 1827.74,
+    "gross_profit_usd": 7115.05,
+    "gross_loss_usd": -5287.31,
+    "max_drawdown_r": 9.93,
+    "max_drawdown_pct": 9.93,
+    "avg_duration_min": 108.9,
+    "longest_win_streak": 8,
+    "longest_loss_streak": 5,
+    "long_trades": 72,
+    "short_trades": 70,
+    "avg_r_sens_mid": 0.1128,
+    "avg_r_sens_high": 0.073,
+    "benchmarks": {
+     "always_long": 0.0365,
+     "always_short": -0.0445,
+     "random_direction_mean_of_20": -0.0214
+    }
+   },
+   "reload_identical_decisions": true
+  },
+  "EURUSD": {
+   "validation": {
+    "trades": 239,
+    "win_rate": 0.5105,
+    "profit_factor": 1.16,
+    "expectancy_r": 0.0605,
+    "avg_r": 0.0605,
+    "median_r": 0.024,
+    "avg_r_ci95": [
+     -0.0488,
+     0.1685
+    ],
+    "net_r": 14.45,
+    "net_return_pct": 14.45,
+    "net_profit_usd": 1444.84,
+    "gross_profit_usd": 10490.58,
+    "gross_loss_usd": -9045.74,
+    "max_drawdown_r": 12.54,
+    "max_drawdown_pct": 12.54,
+    "avg_duration_min": 108.3,
+    "longest_win_streak": 11,
+    "longest_loss_streak": 5,
+    "long_trades": 130,
+    "short_trades": 109
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": -0.093,
+    "2022-01-01..2023-01-01": 0.1438,
+    "2023-01-01..2023-11-14": 0.1245
+   },
+   "oos": {
+    "model_enabled": false,
+    "trades": 120,
+    "win_rate": 0.5833,
+    "profit_factor": 1.424,
+    "expectancy_r": 0.1595,
+    "avg_r": 0.1595,
+    "median_r": 0.9853,
+    "avg_r_ci95": [
+     0.0298,
+     0.2902
+    ],
+    "net_r": 19.15,
+    "net_return_pct": 19.15,
+    "net_profit_usd": 1914.54,
+    "gross_profit_usd": 6425.58,
+    "gross_loss_usd": -4511.04,
+    "max_drawdown_r": 5.21,
+    "max_drawdown_pct": 5.21,
+    "avg_duration_min": 93.1,
+    "longest_win_streak": 7,
+    "longest_loss_streak": 6,
+    "long_trades": 52,
+    "short_trades": 68,
+    "avg_r_sens_mid": 0.1235,
+    "avg_r_sens_high": 0.0335,
+    "benchmarks": {
+     "always_long": 0.0308,
+     "always_short": -0.0488,
+     "random_direction_mean_of_20": -0.0146
+    }
+   },
+   "forward_2025": {
+    "model_enabled": false,
+    "trades": 81,
+    "win_rate": 0.5432,
+    "profit_factor": 1.072,
+    "expectancy_r": 0.0325,
+    "avg_r": 0.0325,
+    "median_r": 0.2668,
+    "avg_r_ci95": [
+     -0.1612,
+     0.2338
+    ],
+    "net_r": 2.63,
+    "net_return_pct": 2.63,
+    "net_profit_usd": 263.28,
+    "gross_profit_usd": 3909.76,
+    "gross_loss_usd": -3646.48,
+    "max_drawdown_r": 9.22,
+    "max_drawdown_pct": 9.22,
+    "avg_duration_min": 85.0,
+    "longest_win_streak": 6,
+    "longest_loss_streak": 4,
+    "long_trades": 21,
+    "short_trades": 60,
+    "avg_r_sens_mid": 0.0102,
+    "avg_r_sens_high": -0.0456,
+    "benchmarks": {
+     "always_long": -0.0024,
+     "always_short": -0.0088,
+     "random_direction_mean_of_20": -0.0102
+    }
+   },
+   "reload_identical_decisions": true
+  },
+  "GBPUSD": {
+   "validation": {
+    "trades": 304,
+    "win_rate": 0.5066,
+    "profit_factor": 1.048,
+    "expectancy_r": 0.0206,
+    "avg_r": 0.0206,
+    "median_r": 0.0263,
+    "avg_r_ci95": [
+     -0.0777,
+     0.1122
+    ],
+    "net_r": 6.27,
+    "net_return_pct": 6.27,
+    "net_profit_usd": 626.8,
+    "gross_profit_usd": 13661.64,
+    "gross_loss_usd": -13034.84,
+    "max_drawdown_r": 14.67,
+    "max_drawdown_pct": 14.67,
+    "avg_duration_min": 97.0,
+    "longest_win_streak": 7,
+    "longest_loss_streak": 7,
+    "long_trades": 169,
+    "short_trades": 135
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": 0.0006,
+    "2022-01-01..2023-01-01": -0.0152,
+    "2023-01-01..2023-11-14": 0.0911
+   },
+   "oos": {
+    "model_enabled": true,
+    "trades": 94,
+    "win_rate": 0.5319,
+    "profit_factor": 1.07,
+    "expectancy_r": 0.0298,
+    "avg_r": 0.0298,
+    "median_r": 0.0763,
+    "avg_r_ci95": [
+     -0.1247,
+     0.1912
+    ],
+    "net_r": 2.8,
+    "net_return_pct": 2.8,
+    "net_profit_usd": 280.24,
+    "gross_profit_usd": 4271.0,
+    "gross_loss_usd": -3990.76,
+    "max_drawdown_r": 9.01,
+    "max_drawdown_pct": 9.01,
+    "avg_duration_min": 90.0,
+    "longest_win_streak": 6,
+    "longest_loss_streak": 7,
+    "long_trades": 35,
+    "short_trades": 59,
+    "avg_r_sens_mid": -0.0002,
+    "avg_r_sens_high": -0.0754,
+    "benchmarks": {
+     "always_long": 0.0022,
+     "always_short": -0.0409,
+     "random_direction_mean_of_20": 0.0096
+    }
+   },
+   "forward_2025": {
+    "model_enabled": true,
+    "trades": 82,
+    "win_rate": 0.4512,
+    "profit_factor": 0.851,
+    "expectancy_r": -0.0715,
+    "avg_r": -0.0715,
+    "median_r": -0.2479,
+    "avg_r_ci95": [
+     -0.3265,
+     0.1663
+    ],
+    "net_r": -5.86,
+    "net_return_pct": -5.86,
+    "net_profit_usd": -586.39,
+    "gross_profit_usd": 3346.64,
+    "gross_loss_usd": -3933.03,
+    "max_drawdown_r": 15.78,
+    "max_drawdown_pct": 15.78,
+    "avg_duration_min": 98.9,
+    "longest_win_streak": 5,
+    "longest_loss_streak": 11,
+    "long_trades": 36,
+    "short_trades": 46,
+    "avg_r_sens_mid": -0.0931,
+    "avg_r_sens_high": -0.147,
+    "benchmarks": {
+     "always_long": 0.0124,
+     "always_short": -0.0232,
+     "random_direction_mean_of_20": -0.0346
+    }
+   },
+   "reload_identical_decisions": true
+  },
+  "NZDUSD": {
+   "validation": {
+    "trades": 245,
+    "win_rate": 0.502,
+    "profit_factor": 0.98,
+    "expectancy_r": -0.0082,
+    "avg_r": -0.0082,
+    "median_r": 0.009,
+    "avg_r_ci95": [
+     -0.1106,
+     0.089
+    ],
+    "net_r": -2.0,
+    "net_return_pct": -2.0,
+    "net_profit_usd": -200.16,
+    "gross_profit_usd": 9627.01,
+    "gross_loss_usd": -9827.17,
+    "max_drawdown_r": 18.13,
+    "max_drawdown_pct": 18.13,
+    "avg_duration_min": 113.1,
+    "longest_win_streak": 5,
+    "longest_loss_streak": 7,
+    "long_trades": 173,
+    "short_trades": 72
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": -0.0342,
+    "2022-01-01..2023-01-01": -0.022,
+    "2023-01-01..2023-11-14": 0.0405
+   },
+   "oos": {
+    "model_enabled": true,
+    "trades": 101,
+    "win_rate": 0.505,
+    "profit_factor": 0.89,
+    "expectancy_r": -0.0487,
+    "avg_r": -0.0487,
+    "median_r": 0.0226,
+    "avg_r_ci95": [
+     -0.1747,
+     0.0865
+    ],
+    "net_r": -4.92,
+    "net_return_pct": -4.92,
+    "net_profit_usd": -491.99,
+    "gross_profit_usd": 3963.44,
+    "gross_loss_usd": -4455.44,
+    "max_drawdown_r": 12.0,
+    "max_drawdown_pct": 12.0,
+    "avg_duration_min": 108.5,
+    "longest_win_streak": 6,
+    "longest_loss_streak": 5,
+    "long_trades": 81,
+    "short_trades": 20,
+    "avg_r_sens_mid": -0.0981,
+    "avg_r_sens_high": -0.2217,
+    "benchmarks": {
+     "always_long": 0.0097,
+     "always_short": -0.0344,
+     "random_direction_mean_of_20": -0.036
+    }
+   },
+   "forward_2025": {
+    "model_enabled": true,
+    "trades": 61,
+    "win_rate": 0.4918,
+    "profit_factor": 0.979,
+    "expectancy_r": -0.0091,
+    "avg_r": -0.0091,
+    "median_r": -0.0,
+    "avg_r_ci95": [
+     -0.1795,
+     0.1687
+    ],
+    "net_r": -0.55,
+    "net_return_pct": -0.55,
+    "net_profit_usd": -55.24,
+    "gross_profit_usd": 2567.68,
+    "gross_loss_usd": -2622.92,
+    "max_drawdown_r": 7.2,
+    "max_drawdown_pct": 7.2,
+    "avg_duration_min": 100.7,
+    "longest_win_streak": 4,
+    "longest_loss_streak": 4,
+    "long_trades": 41,
+    "short_trades": 20,
+    "avg_r_sens_mid": -0.0473,
+    "avg_r_sens_high": -0.1428,
+    "benchmarks": {
+     "always_long": 0.255,
+     "always_short": -0.2756,
+     "random_direction_mean_of_20": 0.0026
+    }
+   },
+   "reload_identical_decisions": true
+  },
+  "XAUUSD": {
+   "validation": {
+    "trades": 311,
+    "win_rate": 0.463,
+    "profit_factor": 0.803,
+    "expectancy_r": -0.0985,
+    "avg_r": -0.0985,
+    "median_r": -0.2068,
+    "avg_r_ci95": [
+     -0.2132,
+     0.0191
+    ],
+    "net_r": -30.63,
+    "net_return_pct": -30.63,
+    "net_profit_usd": -3062.81,
+    "gross_profit_usd": 12499.45,
+    "gross_loss_usd": -15562.26,
+    "max_drawdown_r": 38.94,
+    "max_drawdown_pct": 38.94,
+    "avg_duration_min": 96.1,
+    "longest_win_streak": 9,
+    "longest_loss_streak": 8,
+    "long_trades": 172,
+    "short_trades": 139
+   },
+   "validation_by_fold": {
+    "2021-01-01..2022-01-01": -0.1195,
+    "2022-01-01..2023-01-01": -0.1776,
+    "2023-01-01..2023-11-14": 0.0079
+   },
+   "oos": {
+    "model_enabled": false,
+    "trades": 115,
+    "win_rate": 0.4522,
+    "profit_factor": 0.8,
+    "expectancy_r": -0.0986,
+    "avg_r": -0.0986,
+    "median_r": -0.2801,
+    "avg_r_ci95": [
+     -0.2625,
+     0.0755
+    ],
+    "net_r": -11.34,
+    "net_return_pct": -11.34,
+    "net_profit_usd": -1134.03,
+    "gross_profit_usd": 4536.92,
+    "gross_loss_usd": -5670.96,
+    "max_drawdown_r": 17.77,
+    "max_drawdown_pct": 17.77,
+    "avg_duration_min": 88.9,
+    "longest_win_streak": 9,
+    "longest_loss_streak": 5,
+    "long_trades": 29,
+    "short_trades": 86,
+    "avg_r_sens_mid": -0.1369,
+    "avg_r_sens_high": -0.1752,
+    "benchmarks": {
+     "always_long": 0.0182,
+     "always_short": -0.0764,
+     "random_direction_mean_of_20": -0.0491
+    }
+   },
+   "forward_2025": {
+    "model_enabled": false,
+    "trades": 62,
+    "win_rate": 0.5161,
+    "profit_factor": 1.298,
+    "expectancy_r": 0.1094,
+    "avg_r": 0.1094,
+    "median_r": 0.2517,
+    "avg_r_ci95": [
+     -0.0047,
+     0.2106
+    ],
+    "net_r": 6.78,
+    "net_return_pct": 6.78,
+    "net_profit_usd": 678.34,
+    "gross_profit_usd": 2954.65,
+    "gross_loss_usd": -2276.31,
+    "max_drawdown_r": 3.06,
+    "max_drawdown_pct": 3.06,
+    "avg_duration_min": 108.9,
+    "longest_win_streak": 4,
+    "longest_loss_streak": 3,
+    "long_trades": 26,
+    "short_trades": 36,
+    "avg_r_sens_mid": 0.0838,
+    "avg_r_sens_high": 0.0583,
+    "benchmarks": {
+     "always_long": -0.076,
+     "always_short": 0.0504,
+     "random_direction_mean_of_20": -0.0129
+    }
+   },
+   "reload_identical_decisions": true
+  }
+ },
+ "spot_check": {
+  "AUDUSD": [
+   {
+    "signal": "2024-01-17 18:00",
+    "direction": "SELL",
+    "forecast_gross_r": -0.1798,
+    "keep_fraction": 0.05,
+    "entry": 0.65394,
+    "stop": 0.65542,
+    "exit_time": "2024-01-17 20:45",
+    "exit": 0.65465,
+    "r_net": -0.485
+   },
+   {
+    "signal": "2024-07-26 08:30",
+    "direction": "BUY",
+    "forecast_gross_r": 0.2374,
+    "keep_fraction": 0.05,
+    "entry": 0.65553,
+    "stop": 0.65487,
+    "exit_time": "2024-07-26 08:50",
+    "exit": 0.65619,
+    "r_net": 0.985
+   },
+   {
+    "signal": "2024-11-04 12:15",
+    "direction": "BUY",
+    "forecast_gross_r": 0.1403,
+    "keep_fraction": 0.05,
+    "entry": 0.65981,
+    "stop": 0.65878,
+    "exit_time": "2024-11-04 15:16",
+    "exit": 0.66084,
+    "r_net": 0.99
+   },
+   {
+    "signal": "2024-11-06 11:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.147,
+    "keep_fraction": 0.05,
+    "entry": 0.65608,
+    "stop": 0.65397,
+    "exit_time": "2024-11-06 15:44",
+    "exit": 0.65743,
+    "r_net": 0.635
+   },
+   {
+    "signal": "2024-11-25 08:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.1786,
+    "keep_fraction": 0.05,
+    "entry": 0.6501,
+    "stop": 0.6489,
+    "exit_time": "2024-11-25 09:46",
+    "exit": 0.6513,
+    "r_net": 0.992
+   }
+  ],
+  "EURJPY": [
+   {
+    "signal": "2024-02-23 09:30",
+    "direction": "SELL",
+    "forecast_gross_r": -0.3593,
+    "keep_fraction": 0.05,
+    "entry": 163.135,
+    "stop": 163.26062,
+    "exit_time": "2024-02-23 12:50",
+    "exit": 163.00938,
+    "r_net": 0.992
+   },
+   {
+    "signal": "2024-07-23 16:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.5084,
+    "keep_fraction": 0.05,
+    "entry": 169.073,
+    "stop": 168.78898,
+    "exit_time": "2024-07-23 20:44",
+    "exit": 168.867,
+    "r_net": -0.729
+   },
+   {
+    "signal": "2024-11-20 12:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3343,
+    "keep_fraction": 0.05,
+    "entry": 164.536,
+    "stop": 164.28676,
+    "exit_time": "2024-11-20 13:42",
+    "exit": 164.28676,
+    "r_net": -1.004
+   },
+   {
+    "signal": "2024-12-02 18:15",
+    "direction": "SELL",
+    "forecast_gross_r": -0.2829,
+    "keep_fraction": 0.05,
+    "entry": 157.02,
+    "stop": 157.46095,
+    "exit_time": "2024-12-02 20:45",
+    "exit": 156.925,
+    "r_net": 0.213
+   },
+   {
+    "signal": "2024-12-30 16:00",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3986,
+    "keep_fraction": 0.05,
+    "entry": 163.186,
+    "stop": 162.66766,
+    "exit_time": "2024-12-30 19:59",
+    "exit": 163.347,
+    "r_net": 0.309
+   }
+  ],
+  "EURUSD": [
+   {
+    "signal": "2024-01-26 11:15",
+    "direction": "SELL",
+    "forecast_gross_r": -0.4522,
+    "keep_fraction": 0.02,
+    "entry": 1.08676,
+    "stop": 1.08817,
+    "exit_time": "2024-01-26 13:30",
+    "exit": 1.08817,
+    "r_net": -1.007
+   },
+   {
+    "signal": "2024-08-16 08:00",
+    "direction": "SELL",
+    "forecast_gross_r": -0.4152,
+    "keep_fraction": 0.02,
+    "entry": 1.09849,
+    "stop": 1.09917,
+    "exit_time": "2024-08-16 10:51",
+    "exit": 1.09917,
+    "r_net": -1.015
+   },
+   {
+    "signal": "2024-10-04 13:15",
+    "direction": "SELL",
+    "forecast_gross_r": -0.4892,
+    "keep_fraction": 0.02,
+    "entry": 1.09725,
+    "stop": 1.09917,
+    "exit_time": "2024-10-04 16:20",
+    "exit": 1.09533,
+    "r_net": 0.995
+   },
+   {
+    "signal": "2024-10-18 09:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3969,
+    "keep_fraction": 0.02,
+    "entry": 1.08355,
+    "stop": 1.08259,
+    "exit_time": "2024-10-18 10:36",
+    "exit": 1.08451,
+    "r_net": 0.99
+   },
+   {
+    "signal": "2024-10-30 12:30",
+    "direction": "BUY",
+    "forecast_gross_r": 0.4023,
+    "keep_fraction": 0.02,
+    "entry": 1.08105,
+    "stop": 1.07965,
+    "exit_time": "2024-10-30 13:36",
+    "exit": 1.08245,
+    "r_net": 0.993
+   }
+  ],
+  "GBPUSD": [
+   {
+    "signal": "2024-02-15 13:15",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3417,
+    "keep_fraction": 0.02,
+    "entry": 1.25444,
+    "stop": 1.25301,
+    "exit_time": "2024-02-15 13:30",
+    "exit": 1.25587,
+    "r_net": 0.993
+   },
+   {
+    "signal": "2024-03-01 09:00",
+    "direction": "SELL",
+    "forecast_gross_r": -0.323,
+    "keep_fraction": 0.02,
+    "entry": 1.26304,
+    "stop": 1.26408,
+    "exit_time": "2024-03-01 10:18",
+    "exit": 1.262,
+    "r_net": 0.99
+   },
+   {
+    "signal": "2024-03-01 11:15",
+    "direction": "SELL",
+    "forecast_gross_r": -0.3179,
+    "keep_fraction": 0.02,
+    "entry": 1.26332,
+    "stop": 1.26472,
+    "exit_time": "2024-03-01 14:40",
+    "exit": 1.26192,
+    "r_net": 0.993
+   },
+   {
+    "signal": "2024-04-16 09:45",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3912,
+    "keep_fraction": 0.02,
+    "entry": 1.24427,
+    "stop": 1.24259,
+    "exit_time": "2024-04-16 11:57",
+    "exit": 1.24595,
+    "r_net": 0.994
+   },
+   {
+    "signal": "2024-08-21 12:45",
+    "direction": "SELL",
+    "forecast_gross_r": -0.6117,
+    "keep_fraction": 0.02,
+    "entry": 1.30452,
+    "stop": 1.3058,
+    "exit_time": "2024-08-21 14:00",
+    "exit": 1.30324,
+    "r_net": 0.992
+   }
+  ],
+  "NZDUSD": [
+   {
+    "signal": "2024-01-19 07:15",
+    "direction": "BUY",
+    "forecast_gross_r": 0.4082,
+    "keep_fraction": 0.02,
+    "entry": 0.6094,
+    "stop": 0.6085,
+    "exit_time": "2024-01-19 07:29",
+    "exit": 0.6103,
+    "r_net": 0.989
+   },
+   {
+    "signal": "2024-03-01 09:00",
+    "direction": "BUY",
+    "forecast_gross_r": 0.4055,
+    "keep_fraction": 0.02,
+    "entry": 0.60827,
+    "stop": 0.60754,
+    "exit_time": "2024-03-01 09:07",
+    "exit": 0.609,
+    "r_net": 0.986
+   },
+   {
+    "signal": "2024-03-27 07:15",
+    "direction": "BUY",
+    "forecast_gross_r": 0.4268,
+    "keep_fraction": 0.02,
+    "entry": 0.60017,
+    "stop": 0.59949,
+    "exit_time": "2024-03-27 09:22",
+    "exit": 0.60085,
+    "r_net": 0.985
+   },
+   {
+    "signal": "2024-08-19 18:30",
+    "direction": "SELL",
+    "forecast_gross_r": -0.6115,
+    "keep_fraction": 0.02,
+    "entry": 0.61095,
+    "stop": 0.61191,
+    "exit_time": "2024-08-19 20:45",
+    "exit": 0.61098,
+    "r_net": -0.042
+   },
+   {
+    "signal": "2024-12-18 13:30",
+    "direction": "BUY",
+    "forecast_gross_r": 0.5663,
+    "keep_fraction": 0.02,
+    "entry": 0.5733,
+    "stop": 0.57263,
+    "exit_time": "2024-12-18 15:18",
+    "exit": 0.57263,
+    "r_net": -1.015
+   }
+  ],
+  "XAUUSD": [
+   {
+    "signal": "2024-02-02 17:30",
+    "direction": "BUY",
+    "forecast_gross_r": 0.3507,
+    "keep_fraction": 0.02,
+    "entry": 2035.44,
+    "stop": 2028.73782,
+    "exit_time": "2024-02-02 20:45",
+    "exit": 2036.91,
+    "r_net": 0.204
+   },
+   {
+    "signal": "2024-08-08 10:45",
+    "direction": "SELL",
+    "forecast_gross_r": -0.388,
+    "keep_fraction": 0.02,
+    "entry": 2403.33,
+    "stop": 2409.19013,
+    "exit_time": "2024-08-08 11:11",
+    "exit": 2409.19013,
+    "r_net": -1.017
+   },
+   {
+    "signal": "2024-11-07 13:30",
+    "direction": "SELL",
+    "forecast_gross_r": -0.5277,
+    "keep_fraction": 0.02,
+    "entry": 2680.62,
+    "stop": 2689.07329,
+    "exit_time": "2024-11-07 14:22",
+    "exit": 2689.07329,
+    "r_net": -1.012
+   },
+   {
+    "signal": "2024-11-12 09:00",
+    "direction": "SELL",
+    "forecast_gross_r": -0.3948,
+    "keep_fraction": 0.02,
+    "entry": 2600.39,
+    "stop": 2609.7963,
+    "exit_time": "2024-11-12 09:09",
+    "exit": 2590.9837,
+    "r_net": 0.989
+   },
+   {
+    "signal": "2024-12-09 10:30",
+    "direction": "SELL",
+    "forecast_gross_r": -0.4128,
+    "keep_fraction": 0.02,
+    "entry": 2657.78,
+    "stop": 2663.91422,
+    "exit_time": "2024-12-09 13:48",
+    "exit": 2663.91422,
+    "r_net": -1.016
+   }
+  ]
+ },
+ "feature_influence_fold3": {
+  "base_ic_mean": 0.025,
+  "ic_drop": {
+   "ret_d1_5": 0.00769,
+   "dist_ema200_h4": 0.00695,
+   "hour_sin": 0.00443,
+   "day_position": 0.00421,
+   "usd_strength_16": 0.00414,
+   "er_d1_10": 0.00358,
+   "us_dst": 0.00287,
+   "dist_ema50_h1": 0.00263,
+   "hour_cos": 0.00253,
+   "atr_m15_over_d1": 0.0024,
+   "dist_pdh": 0.00237,
+   "dist_asia_low": 0.00199,
+   "vol_level_z": 0.00186,
+   "ret_m15_64": 0.00174,
+   "er_h1_24": 0.00161,
+   "ema200_slope_m15": 0.00156,
+   "macd_hist_m15": 0.0015,
+   "ret_h4_1": 0.00141,
+   "h1_range8_over_atr": 0.00137,
+   "usd_strength_4": 0.00111,
+   "er_m15_16": 0.0011,
+   "rsi_m15": 0.00081,
+   "ret_d1_1": 0.00075,
+   "ret_m15_1": 0.00066,
+   "gold_ret_4": 0.00059,
+   "tick_volume_z": 0.00049,
+   "dist_ema20_m15": 0.00043,
+   "spread_z": 0.00043,
+   "dist_ema50_m15": 0.00033,
+   "ret_m15_4": 0.00024,
+   "quote_is_usd": 0.0,
+   "dist_ema20_h1": -0.00014,
+   "day_range_over_atr_d1": -0.00038,
+   "minutes_since_0700": -0.0004,
+   "dist_ema200_m15": -0.00049,
+   "dist_ema200_h1": -0.00055,
+   "day_of_week": -0.00083,
+   "ret_m15_16": -0.00096,
+   "risk_on_4": -0.00103,
+   "rsi_h1": -0.00107,
+   "dist_pdl": -0.0018,
+   "dist_asia_high": -0.00302,
+   "rv_1d_over_20d": -0.00336,
+   "dist_ema50_h4": -0.0034
+  }
+ },
+ "null_test_shifted_labels": [
+  {
+   "AUDUSD": {
+    "validation_net_r": -0.0238,
+    "enabled": false,
+    "oos_avg_r": 0.0308,
+    "forward_avg_r": -0.0329
+   },
+   "EURJPY": {
+    "validation_net_r": 0.1201,
+    "enabled": true,
+    "oos_avg_r": -0.1853,
+    "forward_avg_r": 0.0919
+   },
+   "EURUSD": {
+    "validation_net_r": 0.0394,
+    "enabled": true,
+    "oos_avg_r": -0.0752,
+    "forward_avg_r": 0.0697
+   },
+   "GBPUSD": {
+    "validation_net_r": -0.0187,
+    "enabled": false,
+    "oos_avg_r": 0.0479,
+    "forward_avg_r": -0.047
+   },
+   "NZDUSD": {
+    "validation_net_r": 0.0903,
+    "enabled": true,
+    "oos_avg_r": -0.035,
+    "forward_avg_r": -0.1178
+   },
+   "XAUUSD": {
+    "validation_net_r": 0.0512,
+    "enabled": true,
+    "oos_avg_r": 0.1773,
+    "forward_avg_r": 0.1504
+   }
+  },
+  {
+   "AUDUSD": {
+    "validation_net_r": 0.0807,
+    "enabled": true,
+    "oos_avg_r": -0.1112,
+    "forward_avg_r": -0.1232
+   },
+   "EURJPY": {
+    "validation_net_r": 0.0633,
+    "enabled": true,
+    "oos_avg_r": 0.0108,
+    "forward_avg_r": -0.0045
+   },
+   "EURUSD": {
+    "validation_net_r": 0.0494,
+    "enabled": true,
+    "oos_avg_r": -0.0778,
+    "forward_avg_r": -0.0344
+   },
+   "GBPUSD": {
+    "validation_net_r": 0.1008,
+    "enabled": true,
+    "oos_avg_r": 0.1029,
+    "forward_avg_r": 0.0428
+   },
+   "NZDUSD": {
+    "validation_net_r": 0.0678,
+    "enabled": true,
+    "oos_avg_r": -0.067,
+    "forward_avg_r": 0.0129
+   },
+   "XAUUSD": {
+    "validation_net_r": -0.0037,
+    "enabled": false,
+    "oos_avg_r": -0.0529,
+    "forward_avg_r": 0.016
+   }
+  },
+  {
+   "AUDUSD": {
+    "validation_net_r": 0.0242,
+    "enabled": true,
+    "oos_avg_r": 0.04,
+    "forward_avg_r": -0.0712
+   },
+   "EURJPY": {
+    "validation_net_r": 0.0201,
+    "enabled": true,
+    "oos_avg_r": 0.0674,
+    "forward_avg_r": -0.0242
+   },
+   "EURUSD": {
+    "validation_net_r": 0.0487,
+    "enabled": true,
+    "oos_avg_r": -0.0111,
+    "forward_avg_r": -0.134
+   },
+   "GBPUSD": {
+    "validation_net_r": 0.1336,
+    "enabled": true,
+    "oos_avg_r": 0.0823,
+    "forward_avg_r": -0.0622
+   },
+   "NZDUSD": {
+    "validation_net_r": 0.0021,
+    "enabled": true,
+    "oos_avg_r": 0.077,
+    "forward_avg_r": 0.1736
+   },
+   "XAUUSD": {
+    "validation_net_r": -0.0062,
+    "enabled": false,
+    "oos_avg_r": -0.0202,
+    "forward_avg_r": -0.2264
+   }
+  },
+  {
+   "AUDUSD": {
+    "validation_net_r": 0.023,
+    "enabled": true,
+    "oos_avg_r": -0.0343,
+    "forward_avg_r": 0.0754
+   },
+   "EURJPY": {
+    "validation_net_r": 0.0471,
+    "enabled": true,
+    "oos_avg_r": 0.0273,
+    "forward_avg_r": 0.043
+   },
+   "EURUSD": {
+    "validation_net_r": 0.0471,
+    "enabled": true,
+    "oos_avg_r": 0.036,
+    "forward_avg_r": 0.1073
+   },
+   "GBPUSD": {
+    "validation_net_r": 0.0393,
+    "enabled": true,
+    "oos_avg_r": 0.0257,
+    "forward_avg_r": -0.0387
+   },
+   "NZDUSD": {
+    "validation_net_r": -0.0109,
+    "enabled": false,
+    "oos_avg_r": -0.0827,
+    "forward_avg_r": -0.0892
+   },
+   "XAUUSD": {
+    "validation_net_r": -0.004,
+    "enabled": false,
+    "oos_avg_r": 0.0156,
+    "forward_avg_r": 0.0391
+   }
+  },
+  {
+   "AUDUSD": {
+    "validation_net_r": 0.0373,
+    "enabled": true,
+    "oos_avg_r": -0.0884,
+    "forward_avg_r": -0.1507
+   },
+   "EURJPY": {
+    "validation_net_r": 0.0124,
+    "enabled": true,
+    "oos_avg_r": 0.0066,
+    "forward_avg_r": 0.0812
+   },
+   "EURUSD": {
+    "validation_net_r": -0.0053,
+    "enabled": false,
+    "oos_avg_r": -0.0182,
+    "forward_avg_r": -0.1183
+   },
+   "GBPUSD": {
+    "validation_net_r": 0.0276,
+    "enabled": true,
+    "oos_avg_r": 0.0041,
+    "forward_avg_r": -0.017
+   },
+   "NZDUSD": {
+    "validation_net_r": 0.0291,
+    "enabled": true,
+    "oos_avg_r": 0.0233,
+    "forward_avg_r": -0.0428
+   },
+   "XAUUSD": {
+    "validation_net_r": -0.0165,
+    "enabled": false,
+    "oos_avg_r": 0.1746,
+    "forward_avg_r": 0.0257
+   }
+  }
+ ],
+ "verdict": {
+  "AUDUSD": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": true,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": false,
+    "2025 not negative": false,
+    "positive at 0.5 pip / 0.30 $": false,
+    "beats drift benchmark": false,
+    "beats random direction": true,
+    "validation beats all 5 null runs": false
+   }
+  },
+  "EURJPY": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": true,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": false,
+    "2025 not negative": true,
+    "positive at 0.5 pip / 0.30 $": true,
+    "beats drift benchmark": true,
+    "beats random direction": true,
+    "validation beats all 5 null runs": false
+   }
+  },
+  "EURUSD": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": false,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": true,
+    "2025 not negative": true,
+    "positive at 0.5 pip / 0.30 $": true,
+    "beats drift benchmark": true,
+    "beats random direction": true,
+    "validation beats all 5 null runs": true
+   }
+  },
+  "GBPUSD": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": true,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": false,
+    "2025 not negative": false,
+    "positive at 0.5 pip / 0.30 $": false,
+    "beats drift benchmark": true,
+    "beats random direction": true,
+    "validation beats all 5 null runs": false
+   }
+  },
+  "NZDUSD": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": true,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": false,
+    "2025 not negative": false,
+    "positive at 0.5 pip / 0.30 $": false,
+    "beats drift benchmark": false,
+    "beats random direction": false,
+    "validation beats all 5 null runs": false
+   }
+  },
+  "XAUUSD": {
+   "accepted": false,
+   "checks": {
+    "enabled after validation": false,
+    "OOS edge (CI low > 0, or PF >= 1.15 with >= 100 trades)": false,
+    "2025 not negative": true,
+    "positive at 0.5 pip / 0.30 $": false,
+    "beats drift benchmark": false,
+    "beats random direction": false,
+    "validation beats all 5 null runs": false
+   }
+  }
+ }
+}
