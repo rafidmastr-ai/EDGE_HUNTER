@@ -1,6 +1,6 @@
 {
  "symbol": "XAUUSD",
- "architecture": "global",
+ "architecture": "stacked",
  "hyper": "large",
  "label": {
   "barrier_atr": 2.0,
@@ -52,21 +52,22 @@
   "usd_strength_4",
   "vol_level_z"
  ],
- "theta": 0.2469545913093015,
+ "keep": 0.02,
+ "window_days": 60,
+ "warmup_days": 20,
  "enabled": false,
  "cost_price": 0.1,
  "info": {
   "trained_through": "2023-11-14 23:02",
   "validation": {
-   "architecture": "global",
-   "keep": 0.05,
-   "theta": 0.2469545913093015,
-   "trades": 1918,
-   "mean_net_r": -0.01741829596281191,
+   "architecture": "stacked",
+   "keep": 0.02,
+   "trades": 832,
+   "mean_net_r": -0.0032845047998,
    "per_fold": [
-    -0.019710361961827624,
-    0.009044291843810755,
-    -0.04888424855203027
+    -0.07269696262084623,
+    -0.09553188013656996,
+    0.14200315209572234
    ],
    "enabled": false,
    "positive_folds": 1
@@ -76,5 +77,5 @@
    "hyper": "large"
   }
  },
- "model_sha256": "cef3b08f2d5b056c87cced28496edb30a534f44d600c8432f7a79aa02ad47f30"
+ "model_sha256": "36112484daa3a8dccc853ec8120ed7f4e3a644e924c776c904b5a27f79dd4cb5"
 }

@@ -52,21 +52,22 @@
   "usd_strength_4",
   "vol_level_z"
  ],
- "theta": 0.3509924660703115,
+ "keep": 0.05,
+ "window_days": 60,
+ "warmup_days": 20,
  "enabled": true,
  "cost_price": 1e-05,
  "info": {
   "trained_through": "2023-11-14 23:02",
   "validation": {
    "architecture": "global",
-   "keep": 0.02,
-   "theta": 0.3509924660703115,
-   "trades": 777,
-   "mean_net_r": 0.038152277577660154,
+   "keep": 0.05,
+   "trades": 1977,
+   "mean_net_r": 0.040108864569005774,
    "per_fold": [
-    0.007598964056422673,
-    0.3892514491342265,
-    -0.16409715280516748
+    -0.008688379463581947,
+    0.0477788641933472,
+    0.09367915910507921
    ],
    "enabled": true,
    "positive_folds": 2
