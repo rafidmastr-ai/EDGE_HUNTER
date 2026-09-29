@@ -42,16 +42,33 @@
     ]
   },
   "verification_2026_09_29": {
-    "method": "offset = file time of the dominant 1-minute bar at US 08:30 America/New_York releases minus their true UTC time (EURUSD only)",
+    "method": "offset = file time of the dominant 1-minute bar at US 08:30 America/New_York releases minus their true UTC time; days where all symbols (XAUUSD, AUDUSD, EURJPY, EURUSD, GBPUSD, NZDUSD) agree",
     "days_tested": 280,
     "eu_rule_matches": 278,
     "new_york_rule_matches": 261,
-    "decisive_days_favour_eu": "17/17",
-    "note": "2 non-matching days are single-symbol noise (no cross-symbol agreement)",
+    "decisive_days_all_eu": [
+      "2021-11-05",
+      "2022-11-04",
+      "2023-03-14",
+      "2023-03-15",
+      "2023-03-17",
+      "2023-11-03",
+      "2024-03-14",
+      "2024-03-15",
+      "2024-10-31",
+      "2024-11-01",
+      "2025-03-12",
+      "2025-03-14",
+      "2025-03-17",
+      "2025-10-31",
+      "2025-11-07",
+      "2025-11-11",
+      "2025-11-14"
+    ],
     "after_conversion": {
       "nfp_utc": "12:30 during US DST, 13:30 otherwise",
       "unconvertible_rows": 0,
-      "weekly_open_utc": "Sunday 21:01-22:00",
+      "weekly_open_utc": "Sunday 21:00-22:00",
       "weekly_close_utc": "Friday 20:54-21:54",
       "daily_break_utc": "none (as expected for FX)"
     }
