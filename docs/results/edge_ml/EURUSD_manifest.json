@@ -1,0 +1,80 @@
+{
+ "symbol": "EURUSD",
+ "architecture": "symbol",
+ "hyper": "large",
+ "label": {
+  "barrier_atr": 2.0,
+  "horizon_bars": 16
+ },
+ "feature_names": [
+  "atr_m15_over_d1",
+  "day_of_week",
+  "day_position",
+  "day_range_over_atr_d1",
+  "dist_asia_high",
+  "dist_asia_low",
+  "dist_ema200_h1",
+  "dist_ema200_h4",
+  "dist_ema200_m15",
+  "dist_ema20_h1",
+  "dist_ema20_m15",
+  "dist_ema50_h1",
+  "dist_ema50_h4",
+  "dist_ema50_m15",
+  "dist_pdh",
+  "dist_pdl",
+  "ema200_slope_m15",
+  "er_d1_10",
+  "er_h1_24",
+  "er_m15_16",
+  "gold_ret_4",
+  "h1_range8_over_atr",
+  "hour_cos",
+  "hour_sin",
+  "macd_hist_m15",
+  "minutes_since_0700",
+  "quote_is_usd",
+  "ret_d1_1",
+  "ret_d1_5",
+  "ret_h4_1",
+  "ret_m15_1",
+  "ret_m15_16",
+  "ret_m15_4",
+  "ret_m15_64",
+  "risk_on_4",
+  "rsi_h1",
+  "rsi_m15",
+  "rv_1d_over_20d",
+  "spread_z",
+  "tick_volume_z",
+  "us_dst",
+  "usd_strength_16",
+  "usd_strength_4",
+  "vol_level_z"
+ ],
+ "theta": 0.44646320208455825,
+ "enabled": true,
+ "cost_price": 1e-05,
+ "info": {
+  "trained_through": "2023-11-14 23:02",
+  "validation": {
+   "architecture": "symbol",
+   "keep": 0.05,
+   "theta": 0.44646320208455825,
+   "trades": 1941,
+   "mean_net_r": 0.028202054083925697,
+   "per_fold": [
+    -0.023776855400448695,
+    0.15565076952780488,
+    0.03819474996244678
+   ],
+   "enabled": true,
+   "positive_folds": 2
+  },
+  "stage1": {
+   "label": "b2_h16",
+   "hyper": "large"
+  }
+ },
+ "model_sha256": "bbff4ae9729e538753ba9cbe52114418db0fc0f74279bd93b608acc40593443e"
+}
