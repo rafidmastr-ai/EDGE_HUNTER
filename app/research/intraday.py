@@ -383,21 +383,26 @@ def leave_one_year_out(results: Mapping[str, Trades], years: Sequence[int], *, m
     }
 
 
-def drift_benchmark(trades: Trades, orders: Orders, direction: int) -> Orders:
-    """Market orders at the same moments with the same risk and R:R but a fixed ``direction``.
+def drift_benchmark(trades: Trades, orders: Orders, direction: int, exec_bars: Bars) -> Orders:
+    """Market orders at the same fill moments with the same risk and R:R but a fixed ``direction``.
 
+    Each benchmark order fills at the open of the bar where the strategy's trade was
+    filled, with the stop and target placed around *that* price, so risk is identical.
     Comparing a strategy with this isolates its timing/direction skill from the
     instrument's drift (e.g. gold rising through the sample).
     """
     target_by_time = dict(zip(orders.signal_time.tolist(), orders.target.tolist()))
     signal, stop, target = [], [], []
-    for time_, entry, trade_stop in zip(trades.signal_time.tolist(), trades.entry.tolist(), trades.stop.tolist()):
+    for time_, fill_time, entry, trade_stop in zip(
+        trades.signal_time.tolist(), trades.entry_time.tolist(), trades.entry.tolist(), trades.stop.tolist()
+    ):
         risk = abs(entry - trade_stop)
         original_target = target_by_time.get(time_, np.nan)
         rr = np.nan if np.isnan(original_target) else abs(original_target - entry) / risk
-        signal.append(time_)
-        stop.append(entry - direction * risk)
-        target.append(np.nan if np.isnan(rr) else entry + direction * rr * risk)
+        price = float(exec_bars.open[np.searchsorted(exec_bars.open_time, fill_time, "left")])
+        signal.append(fill_time)
+        stop.append(price - direction * risk)
+        target.append(np.nan if np.isnan(rr) else price + direction * rr * risk)
     return make_orders(signal, [direction] * len(signal), stop, target)
 
 

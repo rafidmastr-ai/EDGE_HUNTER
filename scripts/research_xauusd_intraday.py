@@ -129,10 +129,12 @@ def main(argv: list[str] | None = None) -> int:
             pre2, test2 = split(simulate(ctx.m1, orders, stress))
             bench = {}
             for label, d in (("long", 1), ("short", -1)):
-                b_pre, b_test = split(simulate(ctx.m1, drift_benchmark(trades, orders, d), ExecutionConfig(cost=args.cost, one_position=False)))
+                b_pre, b_test = split(simulate(ctx.m1, drift_benchmark(trades, orders, d, ctx.m1), ExecutionConfig(cost=args.cost, one_position=False)))
                 bench[label] = {"pre_avg_r": brief(b_pre).get("avg_r"), "test_avg_r": brief(b_test).get("avg_r")}
             longs, shorts = trades.direction > 0, trades.direction < 0
-            neighbours = [k for k in configs if k != key and sum(configs[k][0][p] != params[p] for p in params) == 1]
+            neighbours = [] if name == "V1_baseline" else [
+                k for k in configs if k != key and sum(configs[k][0][p] != params[p] for p in params) == 1
+            ]
             positive_neighbours = sum(1 for k in neighbours if rows[k]["pre"].get("avg_r", -1) > 0)
             entry["final"][key] = {
                 "params": params,

@@ -95,6 +95,20 @@ class ExecutionTests(unittest.TestCase):
         self.assertAlmostEqual(trades.exit[0], 101.2)
 
 
+class DriftBenchmarkTests(unittest.TestCase):
+    def test_benchmark_keeps_fill_time_and_risk_of_limit_trades(self) -> None:
+        from app.research.intraday import drift_benchmark
+
+        bars = m1(flat(10) + [(100, 100.2, 99.4, 99.6)] + flat(10, 99.6))
+        orders = make_orders([bars.open_time[1]], [1], [98.5], [101.5], limit=np.array([99.5]), expiry_seconds=3600)
+        trades = simulate(bars, orders, ExecutionConfig(cost=0.0))
+        bench = drift_benchmark(trades, orders, -1, bars)
+        self.assertEqual(bench.signal_time[0], trades.entry_time[0])
+        fill_open = bars.open[10]
+        self.assertAlmostEqual(bench.stop[0] - fill_open, 1.0)  # same 1.0 risk, short side
+        self.assertAlmostEqual(fill_open - bench.target[0], 2.0)  # same 2R target
+
+
 class DataToolsTests(unittest.TestCase):
     def test_resample_and_alignment_are_causal(self) -> None:
         bars = m1([(i, i + 0.5, i - 0.5, i + 0.2) for i in range(120)], start=DAY0 + 10 * 3600)
