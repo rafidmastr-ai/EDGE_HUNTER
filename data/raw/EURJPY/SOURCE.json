@@ -76,6 +76,13 @@
         "last_server_time": "2026-09-28T23:59:00",
         "rows_overlapping_existing_files": 0,
         "overlap_rows_differing": 0
+      },
+      "EURJPY_M1_2025_export2.csv": {
+        "rows": 132158,
+        "first_server_time": "2025-08-25T00:03:00",
+        "last_server_time": "2025-12-31T23:59:00",
+        "rows_overlapping_existing_files": 7191,
+        "overlap_rows_differing": 0
       }
     },
     "same_server_and_timezone_evidence": "every overlapping row is identical (timestamp and OHLC) to the previously committed export",
@@ -87,6 +94,7 @@
     "unconvertible_rows": 0,
     "release_timing_check_2025_09_onwards": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 19/192 days vs 0 at 07:30 and 1 at 09:30 (after Europe/Athens -> UTC)",
     "loader_note": "files are read together; duplicate timestamps keep the first file in name order (the original export)",
-    "original_csv_files_are_unmodified": true
+    "original_csv_files_are_unmodified": true,
+    "release_timing_check_2025_09_to_2026_09": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 37/279 days vs 0 at 07:30 and 2 at 09:30 (after Europe/Athens -> UTC)"
   }
 }

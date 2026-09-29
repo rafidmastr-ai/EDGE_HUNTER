@@ -76,6 +76,13 @@
         "last_server_time": "2025-12-31T23:58:00",
         "rows_overlapping_existing_files": 6849,
         "overlap_rows_differing": 0
+      },
+      "XAUUSD_M1_2026.csv": {
+        "rows": 254468,
+        "first_server_time": "2026-01-02T01:00:00",
+        "last_server_time": "2026-09-28T22:59:00",
+        "rows_overlapping_existing_files": 0,
+        "overlap_rows_differing": 0
       }
     },
     "same_server_and_timezone_evidence": "every overlapping row is identical (timestamp and OHLC) to the previously committed export",
@@ -87,6 +94,7 @@
     "unconvertible_rows": 0,
     "release_timing_check_2025_09_onwards": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 10/87 days vs 1 at 07:30 and 4 at 09:30 (after Europe/Athens -> UTC)",
     "loader_note": "files are read together; duplicate timestamps keep the first file in name order (the original export)",
-    "original_csv_files_are_unmodified": true
+    "original_csv_files_are_unmodified": true,
+    "release_timing_check_2025_09_to_2026_09": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 37/278 days vs 2 at 07:30 and 12 at 09:30 (after Europe/Athens -> UTC)"
   }
 }
