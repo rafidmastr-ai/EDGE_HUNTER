@@ -1,0 +1,85 @@
+EDGE HUNTER — Strategy machine learning report
+Trained at (UTC): 2026-09-29T13:29:09.903959+00:00
+Historical setups: 66887  |  Live setups: 0
+Test period (UTC): 2023-11-14T23:02:00+00:00 -> 2025-01-01T00:00:00+00:00  |  cost per trade: {'XAUUSD': 0.2}
+Validation = last 20% of each other calendar year; the rest is training. R is net of cost, per setup.
+
+Strategy results without ML, per symbol (setups | win rate | avg R per setup):
+  Classic  XAUUSD    24942 | 0.252 | -0.0543
+  SMC      XAUUSD     5830 | 0.341 | -0.1600
+  ICT      XAUUSD    36115 | 0.285 | -0.0930
+
+Classic: REJECTED — filter does not improve validation expectancy
+  samples=24942 (historical=24942, live=0)
+  out-of-sample: all setups avg R=-0.0507 win=0.2493 (n=4869) | with ML filter avg R=-0.0585 win=0.2651 (kept=4432), threshold=0.1475
+  split: train=16059 validation=4014 test=4869
+  segment    tf   set       setups   win    avgR    totalR     PF   maxDD   avgR 95% CI
+  train      M5   all        11490 0.244 -0.0857    -984.1   0.85  1136.0   [-0.1172, -0.0519]
+  train      M5   filtered   10295 0.262 -0.0927    -954.7  0.844  1097.4   [-0.1276, -0.0596]
+  train      M15  all         3653 0.269 -0.0096     -35.1  0.982   175.4   [-0.0686, +0.0449]
+  train      M15  filtered    3253 0.291 -0.0106     -34.5  0.981   171.3   [-0.0702, +0.0520]
+  train      H1   all          916 0.289 +0.0364     +33.3  1.069    43.4   [-0.0840, +0.1505]
+  train      H1   filtered     817 0.310 +0.0474     +38.7  1.087    39.7   [-0.0809, +0.1785]
+  validation M5   all         2912 0.254 -0.0424    -123.4  0.923   163.1   [-0.1043, +0.0260]
+  validation M5   filtered    2619 0.271 -0.0472    -123.6  0.918   159.8   [-0.1111, +0.0178]
+  validation M15  all          875 0.258 +0.0037      +3.3  1.007    75.0   [-0.1033, +0.1198]
+  validation M15  filtered     801 0.282 +0.0191     +15.3  1.035    66.5   [-0.0940, +0.1329]
+  validation H1   all          227 0.260 -0.0030      -0.7  0.995    20.8   [-0.1964, +0.2264]
+  validation H1   filtered     194 0.304 +0.0112      +2.2   1.02    20.7   [-0.2085, +0.2485]
+  test       M5   all         3443 0.249 -0.0670    -230.6  0.881   276.0   [-0.1230, -0.0114]
+  test       M5   filtered    3151 0.262 -0.0755    -237.9   0.87   269.7   [-0.1347, -0.0137]
+  test       M15  all         1131 0.235 -0.0476     -53.9  0.912   109.9   [-0.1402, +0.0499]
+  test       M15  filtered    1023 0.256 -0.0585     -59.8  0.898   112.6   [-0.1594, +0.0519]
+  test       H1   all          295 0.302 +0.1279     +37.7  1.262    16.9   [-0.0470, +0.3066]
+  test       H1   filtered     258 0.341 +0.1498     +38.6  1.293    15.7   [-0.0425, +0.3332]
+
+SMC: REJECTED — filter does not improve out-of-sample expectancy
+  samples=5830 (historical=5830, live=0)
+  out-of-sample: all setups avg R=-0.1069 win=0.353 (n=1017) | with ML filter avg R=-0.1669 win=0.3488 (kept=215), threshold=0.3699
+  split: train=3849 validation=964 test=1017
+  segment    tf   set       setups   win    avgR    totalR     PF   maxDD   avgR 95% CI
+  train      M5   all         2733 0.327 -0.2288    -625.4  0.692   637.2   [-0.2769, -0.1841]
+  train      M5   filtered     309 0.437 +0.0133      +4.1  1.021    26.5   [-0.1341, +0.1548]
+  train      M15  all          881 0.373 -0.0331     -29.1  0.948    78.0   [-0.1266, +0.0684]
+  train      M15  filtered     476 0.408 +0.0154      +7.3  1.025    46.0   [-0.1165, +0.1403]
+  train      H1   all          235 0.302 -0.1388     -32.6  0.792    40.9   [-0.2899, +0.0115]
+  train      H1   filtered      42 0.357 -0.1031      -4.3  0.846     8.4   [-0.3611, +0.1465]
+  validation M5   all          698 0.352 -0.1576    -110.0  0.778   120.1   [-0.2373, -0.0778]
+  validation M5   filtered      75 0.387 -0.1777     -13.3  0.757    16.0   [-0.5250, +0.1706]
+  validation M15  all          213 0.329 -0.1326     -28.2  0.802    40.3   [-0.2727, +0.0185]
+  validation M15  filtered     107 0.402 -0.0162      -1.7  0.975    12.8   [-0.2057, +0.1817]
+  validation H1   all           53 0.358 +0.0195      +1.0  1.034     5.9   [-0.2105, +0.2331]
+  validation H1   filtered      10 0.500 +0.2152      +2.1  1.406     2.1   -
+  test       M5   all          742 0.367 -0.0891     -66.1  0.868    82.0   [-0.1682, -0.0090]
+  test       M5   filtered      83 0.349 -0.1918     -15.9  0.723    18.2   [-0.3804, -0.0197]
+  test       M15  all          220 0.323 -0.1457     -32.0  0.787    38.2   [-0.2804, -0.0197]
+  test       M15  filtered     120 0.358 -0.1288     -15.4  0.813    22.4   [-0.3051, +0.0452]
+  test       H1   all           55 0.291 -0.1922     -10.6  0.723    19.6   [-0.5117, +0.1344]
+  test       H1   filtered      12 0.250 -0.3759      -4.5  0.516     4.9   -
+
+ICT: REJECTED — filter does not improve validation expectancy
+  samples=36115 (historical=36115, live=0)
+  out-of-sample: all setups avg R=-0.0408 win=0.3001 (n=7072) | with ML filter avg R=-0.0851 win=0.3443 (kept=3503), threshold=0.293
+  split: train=23234 validation=5809 test=7072
+  segment    tf   set       setups   win    avgR    totalR     PF   maxDD   avgR 95% CI
+  train      M5   all        17234 0.280 -0.1183   -2039.2  0.812  2139.4   [-0.1410, -0.0972]
+  train      M5   filtered    7832 0.329 -0.1592   -1246.6  0.767  1298.5   [-0.1868, -0.1292]
+  train      M15  all         4936 0.275 -0.1113    -549.3  0.819   617.6   [-0.1499, -0.0736]
+  train      M15  filtered    2205 0.336 -0.1335    -294.4  0.802   336.4   [-0.1931, -0.0737]
+  train      H1   all         1064 0.329 +0.0380     +40.4  1.068    34.3   [-0.0376, +0.1121]
+  train      H1   filtered     723 0.382 +0.0721     +52.1  1.124    29.0   [-0.0232, +0.1606]
+  validation M5   all         4312 0.282 -0.1017    -438.5  0.836   462.8   [-0.1469, -0.0571]
+  validation M5   filtered    2086 0.346 -0.1122    -234.0  0.832   247.8   [-0.1729, -0.0523]
+  validation M15  all         1222 0.282 -0.0854    -104.4   0.86   128.0   [-0.1680, -0.0076]
+  validation M15  filtered     620 0.353 -0.0782     -48.5   0.88    73.1   [-0.1765, +0.0322]
+  validation H1   all          275 0.316 +0.0772     +21.2  1.147    16.2   [-0.0764, +0.2365]
+  validation H1   filtered     199 0.382 +0.1169     +23.3   1.21    11.4   [-0.0554, +0.2883]
+  test       M5   all         5203 0.294 -0.0620    -322.5  0.897   344.7   [-0.1013, -0.0232]
+  test       M5   filtered    2544 0.331 -0.1244    -316.6  0.812   325.9   [-0.1755, -0.0707]
+  test       M15  all         1519 0.309 -0.0103     -15.6  0.982    53.0   [-0.0800, +0.0532]
+  test       M15  filtered     720 0.367 -0.0276     -19.9  0.956    47.4   [-0.1222, +0.0696]
+  test       H1   all          350 0.346 +0.1423     +49.8   1.28    22.3   [-0.0295, +0.3162]
+  test       H1   filtered     239 0.418 +0.1603     +38.3  1.291    27.1   [-0.0932, +0.4207]
+
+ACTIVE models are applied automatically by the running web app (reloaded within ~30s).
+REJECTED / INSUFFICIENT_DATA strategies keep running exactly as before (no filter).
