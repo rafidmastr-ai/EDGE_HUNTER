@@ -34,6 +34,33 @@ Options: `--data-dir PATH`, `--max-bars-per-timeframe N`, `--horizon-bars N`,
 `data/models/strategy_learning_report.txt`. The running web app reloads the
 model file automatically within about 30 seconds; no restart is needed.
 
+### MT5 history folders and a fixed test period
+
+A sub-folder of `data/raw` with a `SOURCE.json` (e.g. `data/raw/XAUUSD/`) is read
+as an MT5 M1 export: all `<SYM>_M1_<YEAR>.csv` files are merged, and the
+timestamps (server time written with a misleading `+00:00`) are converted to
+UTC with the `server_tz` named in `SOURCE.json` (`app/data/mt5_history.py`).
+
+```text
+python scripts/train_strategies.py --skip-live --symbols XAUUSD --timeframes H1,M15,M5 \
+    --test-fraction 0.2 --test-end 2025-01-01 --cost XAUUSD=0.20 --out data/models/xauusd_split
+```
+
+- TEST = the last `--test-fraction` of the symbol's bars before `--test-end`
+  (for XAUUSD: 2023-11-14 → 2024-12-31). Everything else is used for learning:
+  in each calendar year the last 20% of setups is VALIDATION (threshold choice),
+  the rest TRAIN.
+- The bar series is cut at the test boundaries and each piece is replayed on
+  its own, so no label horizon or indicator warm-up crosses between test and
+  training data.
+- `--cost SYMBOL=PRICE` charges a round-trip cost of `PRICE / |entry - stop|` R
+  on every labelled setup.
+- `--out DIR` writes the model and report to `DIR`; the live model file is not
+  touched. The report adds a table per timeframe for TRAIN / VALIDATION / TEST,
+  all setups vs model-filtered: setups, win rate, average and total R, profit
+  factor, max drawdown (R, per setup) and a 95% block-bootstrap interval of the
+  average R.
+
 ## Promotion gate
 
 Samples are split chronologically: TRAIN 60% / VALIDATION 20% / OOS 20%. The

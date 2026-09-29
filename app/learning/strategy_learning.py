@@ -25,6 +25,7 @@ Safety:
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import json
 import logging
@@ -249,9 +250,12 @@ class HistoricalSampleBuilder:
         *,
         horizon_bars: int = DEFAULT_HORIZON_BARS,
         backtest_config: BacktestConfig | None = None,
+        cost_per_trade: Mapping[str, float] | None = None,
     ) -> None:
         self.registry = registry or StrategyRegistry.default()
         self.horizon_bars = max(2, int(horizon_bars))
+        # Round-trip cost in price units per symbol, charged as cost / |entry - stop| R.
+        self.cost_per_trade = {key.upper(): float(value) for key, value in (cost_per_trade or {}).items()}
         self.label_engine = OutcomeLabelEngine(backtest_config or BacktestConfig())
         self.feature_engine = FeatureEngine()
 
@@ -309,6 +313,11 @@ class HistoricalSampleBuilder:
         resolution = self.label_engine.evaluate(record, future, data_complete=True)
         if resolution.state != OutcomeResolutionState.COMPLETED or resolution.exit_price is None:
             return None
+        r_multiple = _r_multiple(record.direction, record.entry_price, record.stop_loss, resolution.exit_price)
+        risk = abs(record.entry_price - record.stop_loss)
+        cost = self.cost_per_trade.get(symbol.upper(), 0.0)
+        if cost and risk > 0:
+            r_multiple -= cost / risk
         return StrategySample(
             strategy=signal.strategy_name,
             symbol=symbol.upper(),
@@ -316,7 +325,7 @@ class HistoricalSampleBuilder:
             timestamp=signal.timestamp,
             features=features,
             won=1 if resolution.outcome == LearningOutcome.TP_BEFORE_SL else 0,
-            r_multiple=_r_multiple(record.direction, record.entry_price, record.stop_loss, resolution.exit_price),
+            r_multiple=r_multiple,
             source="HISTORICAL",
         )
 
@@ -489,9 +498,19 @@ class StrategyLearningTrainer:
         min_keep_fraction: float = 0.2,
         regularization_c: float = 0.5,
         min_improvement_r: float = 0.02,
+        test_period: tuple[datetime, datetime] | None = None,
+        validation_share_per_year: float = 0.2,
     ) -> None:
         if not 0 < train_fraction < 1 or not 0 < validation_fraction < 1 or train_fraction + validation_fraction >= 1:
             raise ValueError("invalid chronological split fractions")
+        if test_period is not None and not test_period[0] < test_period[1]:
+            raise ValueError("test_period start must be before its end")
+        if not 0 < validation_share_per_year < 1:
+            raise ValueError("validation_share_per_year must be in (0, 1)")
+        # With test_period: OOS = setups inside [start, end); every other calendar year
+        # gives its last ``validation_share_per_year`` to VALIDATION, the rest to TRAIN.
+        self.test_period = test_period
+        self.validation_share_per_year = validation_share_per_year
         self.min_samples = min_samples
         self.min_oos_kept = min_oos_kept
         self.train_fraction = train_fraction
@@ -519,10 +538,7 @@ class StrategyLearningTrainer:
         if len(ordered) < self.min_samples:
             return StrategyModel(strategy, STATUS_INSUFFICIENT_DATA, f"needs at least {self.min_samples} labelled setups", metrics=counts)
 
-        n = len(ordered)
-        train_end = int(n * self.train_fraction)
-        validation_end = int(n * (self.train_fraction + self.validation_fraction))
-        train, validation, oos = ordered[:train_end], ordered[train_end:validation_end], ordered[validation_end:]
+        train, validation, oos = self.split(ordered)
         if len({item.won for item in train}) < 2:
             return StrategyModel(strategy, STATUS_INSUFFICIENT_DATA, "training segment has a single outcome class", metrics=counts)
 
@@ -575,12 +591,21 @@ class StrategyLearningTrainer:
             if best is None or result["filtered_avg_r"] > best["filtered_avg_r"]:
                 best_threshold, best = threshold, result
         metrics: dict[str, Any] = {**counts, "train": len(train)}
+        if self.test_period is not None:
+            metrics["split"] = {"train": len(train), "validation": len(validation), "test": len(oos)}
         if best is None or best_threshold is None:
+            if self.test_period is not None:
+                metrics["by_timeframe"] = timeframe_breakdown({"train": train, "validation": validation, "test": oos})
             return replace(draft, reason="no threshold keeps enough validation setups", metrics=metrics)
 
         validation_result = best
         oos_result = evaluate(oos, best_threshold)
         metrics.update({"threshold": best_threshold, "validation": validation_result, "oos": oos_result})
+        if self.test_period is not None:
+            metrics["by_timeframe"] = timeframe_breakdown(
+                {"train": train, "validation": validation, "test": oos},
+                keep=lambda item: draft.probability(item.features) >= best_threshold,
+            )
         margin = self.min_improvement_r
         improved_validation = validation_result["filtered_avg_r"] >= validation_result["baseline_avg_r"] + margin
         improved_oos = oos_result["filtered_avg_r"] >= oos_result["baseline_avg_r"] + margin
@@ -592,6 +617,85 @@ class StrategyLearningTrainer:
         if not improved_oos:
             return replace(draft, threshold=best_threshold, reason="filter does not improve out-of-sample expectancy", metrics=metrics)
         return replace(draft, status=STATUS_ACTIVE, threshold=best_threshold, reason="out-of-sample expectancy improved", metrics=metrics)
+
+    def split(self, ordered: Sequence[StrategySample]) -> tuple[list[StrategySample], list[StrategySample], list[StrategySample]]:
+        """(train, validation, oos) from time-ordered samples."""
+        if self.test_period is None:
+            n = len(ordered)
+            train_end = int(n * self.train_fraction)
+            validation_end = int(n * (self.train_fraction + self.validation_fraction))
+            return list(ordered[:train_end]), list(ordered[train_end:validation_end]), list(ordered[validation_end:])
+        start, end = self.test_period
+        oos = [item for item in ordered if start <= item.timestamp < end]
+        by_year: dict[int, list[StrategySample]] = {}
+        for item in ordered:
+            if not start <= item.timestamp < end:
+                by_year.setdefault(item.timestamp.year, []).append(item)
+        train: list[StrategySample] = []
+        validation: list[StrategySample] = []
+        for year in sorted(by_year):
+            items = by_year[year]
+            cut = len(items) - int(round(len(items) * self.validation_share_per_year))
+            train.extend(items[:cut])
+            validation.extend(items[cut:])
+        return train, validation, oos
+
+
+def performance(items: Sequence[StrategySample], *, block: int = 10, reps: int = 2000, seed: int = 11) -> dict[str, Any]:
+    """Per-setup results in R: count, win rate, avg/total R, profit factor, max drawdown, 95% CI of avg R."""
+    ordered = sorted(items, key=lambda item: item.timestamp)
+    values = [item.r_multiple for item in ordered]
+    n = len(values)
+    if not n:
+        return {"setups": 0}
+    gains = sum(value for value in values if value > 0)
+    losses = -sum(value for value in values if value < 0)
+    peak = equity = drawdown = 0.0
+    for value in values:
+        equity += value
+        peak = max(peak, equity)
+        drawdown = max(drawdown, peak - equity)
+    result: dict[str, Any] = {
+        "setups": n,
+        "win_rate": round(_mean([item.won for item in ordered]), 4),
+        "avg_r": round(_mean(values), 4),
+        "total_r": round(sum(values), 2),
+        "profit_factor": round(gains / losses, 3) if losses > 0 else None,
+        "max_drawdown_r": round(drawdown, 2),
+        "avg_r_ci95": None,
+    }
+    if n >= 30:
+        import numpy as np
+
+        # Stationary block bootstrap (mean block length ``block``) keeps serial correlation.
+        rng = np.random.default_rng(seed)
+        array = np.asarray(values)
+        blocks = n // block * 3 + 10
+        means = np.empty(reps)
+        for rep in range(reps):
+            starts = rng.integers(n, size=blocks)
+            lengths = rng.geometric(1.0 / block, size=blocks)
+            offsets = np.arange(lengths.sum()) - np.repeat(np.cumsum(lengths) - lengths, lengths)
+            index = (np.repeat(starts, lengths) + offsets)[:n] % n
+            means[rep] = array[index].mean()
+        result["avg_r_ci95"] = [round(float(np.percentile(means, 2.5)), 4), round(float(np.percentile(means, 97.5)), 4)]
+    return result
+
+
+def timeframe_breakdown(
+    segments: Mapping[str, Sequence[StrategySample]], keep: Any = None
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """performance() per segment and timeframe, for all setups and (if ``keep``) the filtered ones."""
+    output: dict[str, dict[str, dict[str, Any]]] = {}
+    for segment, items in segments.items():
+        output[segment] = {}
+        for timeframe in sorted({item.timeframe for item in items}, key=lambda tf: TIMEFRAME_MINUTES.get(tf, 0)):
+            chosen = [item for item in items if item.timeframe == timeframe]
+            row = {"all": performance(chosen)}
+            if keep is not None:
+                row["filtered"] = performance([item for item in chosen if keep(item)])
+            output[segment][timeframe] = row
+    return output
 
 
 # ---------------------------------------------------------------------------
@@ -887,43 +991,86 @@ def collect_historical_samples(
     *,
     max_bars_per_timeframe: int | None = None,
     progress: Any = None,
+    symbols: Sequence[str] | None = None,
+    timeframes: Sequence[str] = ANALYSIS_TIMEFRAMES,
+    test_fraction: float | None = None,
+    test_end: datetime | None = None,
 ) -> tuple[list[StrategySample], dict[str, Any]]:
-    """Label every strategy setup found in each ``*.csv`` of ``data_dir``.
+    """Label every strategy setup found in ``data_dir``.
 
-    The file name (without extension) is the symbol, e.g. ``BTCUSD.csv``.
+    Sources: each ``*.csv`` (file name = symbol, e.g. ``BTCUSD.csv``) and each
+    sub-folder with a ``SOURCE.json`` (MT5 M1 export, converted to UTC).
     Timeframes finer than a file's native interval are skipped.
+
+    With ``test_fraction`` and ``test_end`` the test period is the last
+    ``test_fraction`` of a symbol's bars before ``test_end``; the series is cut at
+    the test boundaries and each piece is replayed on its own, so no label horizon
+    or indicator warm-up crosses between test and training data.
     """
+    from app.data.mt5_history import is_mt5_symbol_dir, load_mt5_symbol
+
     report = progress or (lambda message: None)
+    wanted = {item.upper() for item in symbols} if symbols else None
     samples: list[StrategySample] = []
     files: dict[str, Any] = {}
-    for path in sorted(Path(data_dir).glob("*.csv")):
-        symbol = path.stem.upper()
+    test_periods: dict[str, tuple[datetime, datetime]] = {}
+    sources = sorted([*Path(data_dir).glob("*.csv"), *(p for p in Path(data_dir).iterdir() if is_mt5_symbol_dir(p))])
+    for path in sources:
+        symbol = (path.name if path.is_dir() else path.stem).upper()
+        if wanted is not None and symbol not in wanted:
+            continue
         try:
-            bars = read_ohlc_csv(path)
+            if path.is_dir():
+                symbol, bars, loaded = load_mt5_symbol(path)
+            else:
+                bars, loaded = read_ohlc_csv(path), {}
         except (OSError, ValueError) as exc:
             files[path.name] = {"error": str(exc)[:200]}
             report(f"  ! {path.name}: skipped ({exc})")
             continue
         entry: dict[str, Any] = {
+            **loaded,
             "rows": len(bars),
             "native_interval_minutes": base_interval_minutes(bars),
             "first": bars[0].timestamp.isoformat() if bars else None,
             "last": bars[-1].timestamp.isoformat() if bars else None,
             "timeframes": {},
         }
-        for timeframe in ANALYSIS_TIMEFRAMES:
-            series = timeframe_bars(bars, timeframe)
-            if series is None:
-                continue
-            if max_bars_per_timeframe:
-                series = series[-max_bars_per_timeframe:]
+        pieces: list[Sequence[CanonicalOHLC]] = [bars]
+        if test_fraction is not None and test_end is not None and bars:
+            stamps = [bar.timestamp for bar in bars]
+            end_index = bisect.bisect_left(stamps, test_end)
+            start_index = max(0, end_index - int(round(test_fraction * len(bars))))
+            period = (stamps[start_index], test_end)
+            test_periods[symbol] = period
+            entry["test_period"] = [period[0].isoformat(), period[1].isoformat()]
+            entry["test_share_of_bars"] = round((end_index - start_index) / len(bars), 4)
+            pieces = [piece for piece in (bars[:start_index], bars[start_index:end_index], bars[end_index:]) if piece]
+            report(f"  {symbol}: test period {period[0].isoformat()} -> {period[1].isoformat()} ({entry['test_share_of_bars']:.1%} of bars)")
+        for timeframe in timeframes:
             started = time.monotonic()
-            found = builder.samples_from_bars(symbol, timeframe, series)
+            total_bars = 0
+            found: list[StrategySample] = []
+            skipped = False
+            for piece in pieces:
+                series = timeframe_bars(piece, timeframe)
+                if series is None:
+                    skipped = True
+                    break
+                if max_bars_per_timeframe:
+                    series = series[-max_bars_per_timeframe:]
+                total_bars += len(series)
+                found.extend(builder.samples_from_bars(symbol, timeframe, series))
+            if skipped:
+                continue
             samples.extend(found)
-            entry["timeframes"][timeframe] = {"bars": len(series), "setups": len(found)}
-            report(f"  {symbol} {timeframe}: {len(series)} bars -> {len(found)} labelled setups ({time.monotonic() - started:.0f}s)")
+            entry["timeframes"][timeframe] = {"bars": total_bars, "setups": len(found)}
+            report(f"  {symbol} {timeframe}: {total_bars} bars -> {len(found)} labelled setups ({time.monotonic() - started:.0f}s)")
         files[path.name] = entry
-    return samples, {"files": files}
+    summary: dict[str, Any] = {"files": files}
+    if test_periods:
+        summary["test_period"] = [min(p[0] for p in test_periods.values()).isoformat(), max(p[1] for p in test_periods.values()).isoformat()]
+    return samples, summary
 
 
 def baseline_breakdown(samples: Iterable[StrategySample]) -> dict[str, dict[str, dict[str, float]]]:
@@ -951,8 +1098,17 @@ def run_training(
     max_bars_per_timeframe: int | None = None,
     trainer: StrategyLearningTrainer | None = None,
     progress: Any = None,
+    symbols: Sequence[str] | None = None,
+    timeframes: Sequence[str] = ANALYSIS_TIMEFRAMES,
+    test_fraction: float | None = None,
+    test_end: datetime | None = None,
+    cost_per_trade: Mapping[str, float] | None = None,
 ) -> StrategyLearningBundle:
-    """Resolve live setups, collect historical + live samples, train and save."""
+    """Resolve live setups, collect historical + live samples, train and save.
+
+    With ``test_fraction`` + ``test_end`` the trainer tests on that period (see
+    ``collect_historical_samples``) unless an explicit ``trainer`` is given.
+    """
     report = progress or (lambda message: None)
     summary: dict[str, Any] = {"horizon_bars": horizon_bars}
     if provider is not None:
@@ -964,13 +1120,26 @@ def run_training(
         summary["live_resolution"] = "skipped"
 
     report(f"[2/4] Learning from historical CSV files in {data_dir} ...")
-    builder = HistoricalSampleBuilder(horizon_bars=horizon_bars)
+    builder = HistoricalSampleBuilder(horizon_bars=horizon_bars, cost_per_trade=cost_per_trade)
     historical, historical_summary = collect_historical_samples(
-        data_dir, builder, max_bars_per_timeframe=max_bars_per_timeframe, progress=report
+        data_dir,
+        builder,
+        max_bars_per_timeframe=max_bars_per_timeframe,
+        progress=report,
+        symbols=symbols,
+        timeframes=timeframes,
+        test_fraction=test_fraction,
+        test_end=test_end,
     )
     summary.update(historical_summary)
+    summary["timeframes"] = list(timeframes)
+    summary["cost_per_trade"] = dict(cost_per_trade or {})
+    if trainer is None and "test_period" in historical_summary:
+        start, end = (datetime.fromisoformat(value) for value in historical_summary["test_period"])
+        trainer = StrategyLearningTrainer(test_period=(start, end))
 
-    live = live_samples(database)
+    wanted = {item.upper() for item in symbols} if symbols else None
+    live = [item for item in live_samples(database) if (wanted is None or item.symbol in wanted) and item.timeframe in timeframes]
     summary["baseline_by_symbol"] = baseline_breakdown([*historical, *live])
     summary["historical_samples"] = len(historical)
     summary["live_samples"] = len(live)
@@ -988,8 +1157,12 @@ def format_report(bundle: StrategyLearningBundle) -> str:
         "EDGE HUNTER — Strategy machine learning report",
         f"Trained at (UTC): {bundle.trained_at.isoformat()}",
         f"Historical setups: {bundle.data_summary.get('historical_samples')}  |  Live setups: {bundle.data_summary.get('live_samples')}",
-        "",
     ]
+    if bundle.data_summary.get("test_period"):
+        start, end = bundle.data_summary["test_period"]
+        lines.append(f"Test period (UTC): {start} -> {end}  |  cost per trade: {bundle.data_summary.get('cost_per_trade')}")
+        lines.append("Validation = last 20% of each other calendar year; the rest is training. R is net of cost, per setup.")
+    lines.append("")
     breakdown = bundle.data_summary.get("baseline_by_symbol") or {}
     if breakdown:
         lines.append("Strategy results without ML, per symbol (setups | win rate | avg R per setup):")
@@ -1012,6 +1185,27 @@ def format_report(bundle: StrategyLearningBundle) -> str:
                 f"with ML filter avg R={oos.get('filtered_avg_r')} win={oos.get('filtered_win_rate')} (kept={oos.get('kept')}), "
                 f"threshold={metrics.get('threshold')}"
             )
+        by_timeframe = metrics.get("by_timeframe")
+        if isinstance(by_timeframe, Mapping):
+            split = metrics.get("split") or {}
+            lines.append(f"  split: train={split.get('train')} validation={split.get('validation')} test={split.get('test')}")
+            lines.append("  segment    tf   set       setups   win    avgR    totalR     PF   maxDD   avgR 95% CI")
+            for segment in ("train", "validation", "test"):
+                for timeframe, row in (by_timeframe.get(segment) or {}).items():
+                    for kind in ("all", "filtered"):
+                        cell = row.get(kind)
+                        if not cell:
+                            continue
+                        if not cell.get("setups"):
+                            lines.append(f"  {segment:<10} {timeframe:<4} {kind:<9} {0:>6}")
+                            continue
+                        ci = cell.get("avg_r_ci95")
+                        pf = cell.get("profit_factor")
+                        lines.append(
+                            f"  {segment:<10} {timeframe:<4} {kind:<9} {cell['setups']:>6} {cell['win_rate']:.3f} {cell['avg_r']:+.4f} "
+                            f"{cell['total_r']:>+9.1f} {pf if pf is not None else '-':>6} {cell['max_drawdown_r']:>7.1f}   "
+                            f"{'[' + format(ci[0], '+.4f') + ', ' + format(ci[1], '+.4f') + ']' if ci else '-'}"
+                        )
         lines.append("")
     lines.append("ACTIVE models are applied automatically by the running web app (reloaded within ~30s).")
     lines.append("REJECTED / INSUFFICIENT_DATA strategies keep running exactly as before (no filter).")
@@ -1020,6 +1214,8 @@ def format_report(bundle: StrategyLearningBundle) -> str:
 
 __all__ = [
     "ANALYSIS_TIMEFRAMES",
+    "performance",
+    "timeframe_breakdown",
     "FEATURE_NAMES",
     "FEATURE_SET_VERSION",
     "HistoricalSampleBuilder",

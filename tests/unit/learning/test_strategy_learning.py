@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+from collections import Counter
 import tempfile
 import unittest
 from dataclasses import replace
@@ -33,7 +34,9 @@ from app.learning.strategy_learning import (
     StrategyModel,
     StrategySample,
     base_interval_minutes,
+    collect_historical_samples,
     live_samples,
+    performance,
     read_ohlc_csv,
     run_training,
     signal_features,
@@ -216,6 +219,21 @@ class HistoricalSampleTests(unittest.TestCase):
         self.assertEqual(expired.won, 0)
         self.assertAlmostEqual(expired.r_multiple, 0.0)
 
+    def test_cost_is_charged_as_cost_over_risk_in_r(self) -> None:
+        builder = HistoricalSampleBuilder(horizon_bars=5, cost_per_trade={"btc/usd": 0.5})
+        signal = make_signal("BUY")  # risk = 2.0
+
+        def bar(i: int, high: float, low: float) -> CanonicalOHLC:
+            return CanonicalOHLC(T0 + timedelta(minutes=15 * i), Decimal("100"), Decimal(str(high)), Decimal(str(low)), Decimal("100"))
+
+        win = builder._label(signal, "BTC/USD", "M15", snapshot_values(), [bar(1, 104, 100)])
+        loss = builder._label(signal, "BTC/USD", "M15", snapshot_values(), [bar(1, 101, 97.5)])
+        other = builder._label(signal, "ETH/USD", "M15", snapshot_values(), [bar(1, 104, 100)])
+        self.assertEqual(win.won, 1)
+        self.assertAlmostEqual(win.r_multiple, 1.75 - 0.25)
+        self.assertAlmostEqual(loss.r_multiple, -1.25)
+        self.assertAlmostEqual(other.r_multiple, 1.75)
+
     def test_timeframes_follow_csv_native_interval(self) -> None:
         m1 = random_walk(300)
         h1 = random_walk(300, minutes=60)
@@ -261,6 +279,49 @@ class TrainerTests(unittest.TestCase):
         model = StrategyLearningTrainer(min_samples=200).train(list(reversed(samples))).models["ICT"]
         self.assertEqual(model.metrics["train"], 600)
         self.assertEqual(model.metrics["oos"]["count"], 200)
+
+
+class PeriodSplitTests(unittest.TestCase):
+    def samples_over_years(self) -> list[StrategySample]:
+        base = synthetic_samples(3000, informative=True)
+        start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        step = (datetime(2025, 9, 1, tzinfo=timezone.utc) - start) / len(base)
+        return [replace(item, timestamp=start + step * i, timeframe=("M5", "M15", "H1")[i % 3]) for i, item in enumerate(base)]
+
+    def test_test_period_is_isolated_and_validation_is_end_of_each_year(self) -> None:
+        period = (datetime(2023, 11, 14, tzinfo=timezone.utc), datetime(2025, 1, 1, tzinfo=timezone.utc))
+        trainer = StrategyLearningTrainer(min_samples=200, test_period=period)
+        ordered = sorted(self.samples_over_years(), key=lambda item: item.timestamp)
+        train, validation, oos = trainer.split(ordered)
+        self.assertEqual(len(train) + len(validation) + len(oos), len(ordered))
+        self.assertTrue(all(period[0] <= item.timestamp < period[1] for item in oos))
+        self.assertFalse(any(period[0] <= item.timestamp < period[1] for item in [*train, *validation]))
+        self.assertEqual({item.timestamp.year for item in validation}, {2020, 2021, 2022, 2023, 2025})
+        for year in (2020, 2021, 2022, 2023, 2025):
+            train_year = [item.timestamp for item in train if item.timestamp.year == year]
+            validation_year = [item.timestamp for item in validation if item.timestamp.year == year]
+            self.assertLess(max(train_year), min(validation_year))
+            self.assertAlmostEqual(len(validation_year) / (len(train_year) + len(validation_year)), 0.2, delta=0.01)
+
+    def test_training_reports_each_timeframe_per_segment(self) -> None:
+        period = (datetime(2023, 11, 14, tzinfo=timezone.utc), datetime(2025, 1, 1, tzinfo=timezone.utc))
+        model = StrategyLearningTrainer(min_samples=200, test_period=period).train(self.samples_over_years()).models["ICT"]
+        breakdown = model.metrics["by_timeframe"]
+        self.assertEqual(list(breakdown["test"]), ["M5", "M15", "H1"])
+        self.assertEqual(sum(row["all"]["setups"] for row in breakdown["test"].values()), model.metrics["split"]["test"])
+        self.assertIn("filtered", breakdown["test"]["M5"])
+
+    def test_invalid_period_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            StrategyLearningTrainer(test_period=(datetime(2025, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 1, tzinfo=timezone.utc)))
+
+    def test_performance_metrics(self) -> None:
+        items = [replace(synthetic_samples(1, informative=False)[0], r_multiple=value, won=int(value > 0), timestamp=T0 + timedelta(hours=i))
+                 for i, value in enumerate([1.0, -1.0, -1.0, 2.0])]
+        result = performance(items)
+        self.assertEqual((result["setups"], result["total_r"], result["max_drawdown_r"], result["profit_factor"]), (4, 1.0, 2.0, 1.5))
+        self.assertIsNone(result["avg_r_ci95"])
+        self.assertEqual(performance([]), {"setups": 0})
 
 
 class BundleAndFilterTests(unittest.TestCase):
@@ -447,6 +508,39 @@ class EndToEndTrainingTests(unittest.TestCase):
             self.assertEqual(set(loaded.models), {"Classic", "SMC", "ICT"})
             self.assertGreater(bundle.data_summary["historical_samples"], 0)
             self.assertEqual(set(bundle.data_summary["files"]["BTCUSD.csv"]["timeframes"]), {"M5", "M15", "H1"})
+
+    def test_mt5_folder_with_test_period_replays_pieces_separately(self) -> None:
+        class SpyBuilder(HistoricalSampleBuilder):
+            def __init__(self) -> None:
+                super().__init__(horizon_bars=20)
+                self.series: list[tuple[str, datetime, datetime]] = []
+
+            def samples_from_bars(self, symbol, timeframe, bars):
+                self.series.append((timeframe, bars[0].timestamp, bars[-1].timestamp))
+                return super().samples_from_bars(symbol, timeframe, bars)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "XAUUSD"
+            folder.mkdir()
+            (folder / "SOURCE.json").write_text(json.dumps({"symbol": "XAUUSD", "server_tz": "Europe/Athens"}), encoding="utf-8")
+            with (folder / "XAUUSD_M1_2026.csv").open("w", encoding="utf-8") as handle:
+                handle.write("timestamp,open,high,low,close,tick_volume,spread\n")
+                for bar in random_walk(9000, seed=5):
+                    handle.write(f"{bar.timestamp.strftime('%Y-%m-%dT%H:%M:%S')}+00:00,{bar.open},{bar.high},{bar.low},{bar.close},1,10\n")
+            (Path(tmp) / "IGNORED.csv").write_text("timestamp,open,high,low,close\n", encoding="utf-8")
+            builder = SpyBuilder()
+            test_end = T0 + timedelta(minutes=7000)
+            samples, summary = collect_historical_samples(
+                Path(tmp), builder, symbols=["XAUUSD"], timeframes=("M5", "H1"), test_fraction=0.2, test_end=test_end
+            )
+        start = datetime.fromisoformat(summary["test_period"][0])
+        self.assertEqual(datetime.fromisoformat(summary["test_period"][1]), test_end)
+        self.assertEqual(summary["files"]["XAUUSD"]["test_share_of_bars"], 0.2)
+        self.assertNotIn("IGNORED.csv", summary["files"])
+        self.assertEqual(Counter(timeframe for timeframe, _, _ in builder.series), {"M5": 3, "H1": 3})
+        for _, first, last in builder.series:
+            self.assertTrue(last < start or first >= test_end or (first >= start and last < test_end))
+        self.assertTrue(any(start <= item.timestamp < test_end for item in samples))
 
 
 if __name__ == "__main__":
