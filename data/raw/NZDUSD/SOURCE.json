@@ -1,0 +1,60 @@
+{
+  "symbol": "NZDUSD",
+  "source": "MetaTrader 5 Python API (copy_rates), server MetaQuotes-Demo",
+  "timeframe": "M1",
+  "columns": [
+    "timestamp",
+    "open",
+    "high",
+    "low",
+    "close",
+    "tick_volume",
+    "spread"
+  ],
+  "timestamp_as_written": "ISO 8601 with '+00:00' suffix, but the clock values are BROKER SERVER TIME (MT5 returns server-time epoch)",
+  "server_tz": "Europe/Athens",
+  "server_offset_rule": "UTC+2 standard time, UTC+3 from the last Sunday of March to the last Sunday of October (EU DST rules, NOT America/New_York)",
+  "to_utc": "strip '+00:00', treat as naive server time, tz_localize('Europe/Athens'), tz_convert('UTC')  ==  UTC = server_time - offset",
+  "offset_change_dates": {
+    "2020": [
+      "2020-03-29",
+      "2020-10-25"
+    ],
+    "2021": [
+      "2021-03-28",
+      "2021-10-31"
+    ],
+    "2022": [
+      "2022-03-27",
+      "2022-10-30"
+    ],
+    "2023": [
+      "2023-03-26",
+      "2023-10-29"
+    ],
+    "2024": [
+      "2024-03-31",
+      "2024-10-27"
+    ],
+    "2025": [
+      "2025-03-30",
+      "2025-10-26 (outside data range)"
+    ]
+  },
+  "verification_2026_09_29": {
+    "method": "offset = file time of the dominant 1-minute bar at US 08:30 America/New_York releases minus their true UTC time (NZDUSD only)",
+    "days_tested": 296,
+    "eu_rule_matches": 293,
+    "new_york_rule_matches": 275,
+    "decisive_days_favour_eu": "18/18",
+    "note": "3 non-matching days are single-symbol noise (no cross-symbol agreement)",
+    "after_conversion": {
+      "nfp_utc": "12:30 during US DST, 13:30 otherwise",
+      "unconvertible_rows": 0,
+      "weekly_open_utc": "Sunday 21:01-22:02",
+      "weekly_close_utc": "Friday 20:54-21:54",
+      "daily_break_utc": "none (as expected for FX)"
+    }
+  },
+  "original_csv_files_are_unmodified": true
+}
