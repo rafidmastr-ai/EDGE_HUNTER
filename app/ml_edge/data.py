@@ -17,6 +17,9 @@ from app.research.intraday import Bars
 CACHE_VERSION = 1
 FX_COST_PIPS = {"base": 0.1, "sens_mid": 0.5, "sens_high": 1.5}
 XAU_COST_USD = {"base": 0.10, "sens_mid": 0.30, "sens_high": 0.50}
+# Estimated overnight financing per rollover (both directions), charged only when holding.
+SWAP_FX_PIPS = 0.5
+SWAP_XAU_USD = 0.50
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,13 @@ def cost_price(symbol: str, level: str = "base") -> float:
     if symbol.upper().startswith("XAU"):
         return XAU_COST_USD[level]
     return FX_COST_PIPS[level] * pip_size(symbol)
+
+
+def swap_price(symbol: str, multiplier: float = 1.0) -> float:
+    """Estimated swap per night in price units (owner: flat estimate; Wednesday counts 3x)."""
+    if symbol.upper().startswith("XAU"):
+        return SWAP_XAU_USD * multiplier
+    return SWAP_FX_PIPS * pip_size(symbol) * multiplier
 
 
 def discover_symbols(raw_dir: Path) -> list[str]:
@@ -115,4 +125,4 @@ def resample_activity(data: SymbolData, minutes: int) -> tuple[np.ndarray, np.nd
     return np.add.reduceat(data.tick_volume, starts), np.add.reduceat(data.spread, starts) / counts
 
 
-__all__ = ["SymbolData", "cost_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]
+__all__ = ["SymbolData", "cost_price", "swap_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]

@@ -175,7 +175,7 @@ def own_features(data: SymbolData) -> tuple[Bars, dict[str, np.ndarray], np.ndar
     return b, f, a15
 
 
-def build_all(symbols: dict[str, SymbolData]) -> dict[str, FeatureFrame]:
+def build_all(symbols: dict[str, SymbolData], *, session_start_hour: int = 7) -> dict[str, FeatureFrame]:
     """Features for every symbol, including cross-market features shared by all."""
     base = {name: own_features(data) for name, data in symbols.items()}
     # cross-market series known at each M15 close (vol-normalised 4- and 16-bar returns)
@@ -212,7 +212,7 @@ def build_all(symbols: dict[str, SymbolData]) -> dict[str, FeatureFrame]:
         x = np.column_stack([feats[n] for n in names]).astype(np.float32)
         x[~np.isfinite(x)] = np.nan
         sod = times % DAY
-        tradable = (sod > SESSION_START) & (sod <= LAST_ENTRY) & np.isfinite(a15) & (a15 > 0)
+        tradable = (sod > session_start_hour * 3600) & (sod <= LAST_ENTRY) & np.isfinite(a15) & (a15 > 0)
         frames[name] = FeatureFrame(name, times, x, names, a15, tradable)
     return frames
 

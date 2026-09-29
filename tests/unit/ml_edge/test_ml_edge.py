@@ -102,6 +102,32 @@ class LabelTests(unittest.TestCase):
         self.assertAlmostEqual(value, 0.3)  # closed at the 20:45 open, before the later rally
 
 
+class HoldLabelTests(unittest.TestCase):
+    def test_hold_label_matches_execution_and_counts_swap_nights(self) -> None:
+        from app.ml_edge.labels import triple_barrier_exits
+        from app.ml_edge.model import expected_nights
+        from app.research.intraday import ExecutionConfig, make_orders, simulate
+
+        data = random_symbol("EURUSD", days=12, seed=5)
+        frames = build_all({"EURUSD": data}, session_start_hour=1)
+        f = frames["EURUSD"].select(frames["EURUSD"].tradable)
+        pick = np.arange(len(f.close_time))[::37]
+        cfg = LabelConfig(2.0, 48, max_hold_minutes=720)
+        y, entry, exit_ = triple_barrier_exits(data.m1, f.close_time[pick], f.atr[pick], cfg)
+        ok = np.isfinite(y)
+        orders = make_orders(f.close_time[pick][ok], np.ones(ok.sum(), int), np.full(ok.sum(), np.nan), np.full(ok.sum(), np.nan),
+                             stop_distance=2.0 * f.atr[pick][ok], target_rr=np.ones(ok.sum()))
+        trades = simulate(data.m1, orders, ExecutionConfig(cost=0.0, session_exit=None, max_hold_seconds=43200, weekend_exit=(20, 45),
+                                                           one_position=False, stop_fills_at_gap=False, swap_per_night=0.0))
+        self.assertEqual(len(trades), int(ok.sum()))
+        self.assertTrue(np.allclose(trades.r_gross, y[ok]))
+        self.assertTrue(np.array_equal(trades.exit_time, exit_[ok]))
+        self.assertTrue(np.all(exit_[ok] - entry[ok] <= 43200))
+        tuesday_18 = START + DAY + 18 * 3600  # 2024-01-02 18:00 UTC
+        self.assertEqual(expected_nights(np.array([tuesday_18]), cfg)[0], 1)
+        self.assertEqual(expected_nights(np.array([tuesday_18]), LabelConfig(2.0, 16))[0], 0)
+
+
 class WalkForwardTests(unittest.TestCase):
     def test_training_rows_stop_one_day_before_validation(self) -> None:
         t = START + 900 * np.arange(2000)

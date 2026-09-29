@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from app.research.intraday import (
+    DAY,
     Bars,
     ExecutionConfig,
     align_to,
@@ -118,6 +119,35 @@ class DriftBenchmarkTargetRrTests(unittest.TestCase):
         trades = simulate(bars, orders, ExecutionConfig(cost=0.0))
         bench = drift_benchmark(trades, orders, -1, bars)
         self.assertAlmostEqual(bench.target[0], bars.open[3] - 1.5)
+
+
+class HoldAndSwapTests(unittest.TestCase):
+    def test_forced_exit_after_max_hold_and_swap_nights(self) -> None:
+        from app.research.intraday import rollover_nights
+
+        start = DAY0 + 18 * 3600  # Tuesday 18:00 UTC
+        bars = m1(flat(60 * 14), start=start)  # 14 hours of flat prices
+        orders = make_orders([start + 60], [1], [99.0], [110.0])
+        cfg = ExecutionConfig(cost=0.1, session_exit=None, max_hold_seconds=12 * 3600, swap_per_night=0.2)
+        trades = simulate(bars, orders, cfg)
+        self.assertEqual(trades.exit_time[0], start + 60 + 12 * 3600)  # open of the bar 12 h after the fill
+        self.assertEqual(trades.swap_nights[0], 1)  # crossed Tuesday 21:00 once
+        self.assertAlmostEqual(trades.r_net[0], trades.r_gross[0] - (0.1 + 0.2) / 1.0)
+        wednesday = DAY0 + DAY  # 2024-03-06
+        self.assertEqual(rollover_nights(wednesday + 20 * 3600, wednesday + 22 * 3600), 3)
+        self.assertEqual(rollover_nights(wednesday + 22 * 3600, wednesday + DAY + 20 * 3600), 0)
+
+    def test_no_weekend_holding(self) -> None:
+        from app.research.intraday import friday_cutoff
+
+        friday = DAY0 + 3 * DAY  # 2024-03-08
+        self.assertEqual(friday_cutoff(friday + 10 * 3600, (20, 45)), friday + 20 * 3600 + 45 * 60)
+        self.assertEqual(friday_cutoff(DAY0, (20, 45)), friday + 20 * 3600 + 45 * 60)
+        bars = m1(flat(60 * 6), start=friday + 16 * 3600)
+        orders = make_orders([friday + 16 * 3600 + 60], [1], [99.0], [110.0])
+        cfg = ExecutionConfig(cost=0.0, session_exit=None, max_hold_seconds=12 * 3600, weekend_exit=(20, 45))
+        trades = simulate(bars, orders, cfg)
+        self.assertEqual(trades.exit_time[0], friday + 20 * 3600 + 45 * 60)
 
 
 class DataToolsTests(unittest.TestCase):

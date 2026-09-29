@@ -206,6 +206,10 @@ class ExecutionConfig:
     one_position: bool = True
     stop_fills_at_gap: bool = True  # a gap through the stop fills at the (worse) open
     entry_price: Mapping[int, float] | None = None  # V1 semantics: signal_time -> decision close
+    max_hold_seconds: int | None = None  # forced exit at the first bar open this long after the fill
+    weekend_exit: tuple[int, int] | None = None  # forced exit on Friday at this UTC time (no weekend holding)
+    swap_per_night: float = 0.0  # price units charged per rollover crossed while open
+    rollover_utc_hour: int = 21  # daily rollover; the Wednesday one counts 3x (weekend financing)
 
 
 @dataclass(frozen=True)
@@ -220,6 +224,7 @@ class Trades:
     r_gross: np.ndarray
     r_net: np.ndarray
     outcome: np.ndarray  # 1 target, -1 initial stop, 2 moved (break-even/trail) stop, 0 time/session exit
+    swap_nights: np.ndarray | None = None  # rollovers charged (Wednesday = 3)
 
     def __len__(self) -> int:
         return len(self.entry_time)
@@ -228,11 +233,30 @@ class Trades:
         return self.entry_time.astype("datetime64[s]").astype("datetime64[Y]").astype(int) + 1970
 
     def select(self, mask: np.ndarray) -> "Trades":
-        return Trades(*(getattr(self, name)[mask] for name in Trades.__dataclass_fields__))
+        return Trades(*(None if getattr(self, name) is None else getattr(self, name)[mask] for name in Trades.__dataclass_fields__))
 
 
 def _clock(seconds: int, hm: tuple[int, int]) -> int:
     return seconds // DAY * DAY + hm[0] * 3600 + hm[1] * 60
+
+
+def friday_cutoff(seconds: int, hm: tuple[int, int]) -> int:
+    """The first Friday ``hm`` UTC at or after ``seconds`` (epoch day 0 was a Thursday)."""
+    day = seconds // DAY
+    weekday = (day + 3) % 7  # 0 = Monday
+    cutoff = (day + (4 - weekday) % 7) * DAY + hm[0] * 3600 + hm[1] * 60
+    return cutoff if cutoff > seconds else cutoff + 7 * DAY
+
+
+def rollover_nights(entry_time: int, exit_time: int, hour: int = 21) -> int:
+    """Rollovers at ``hour`` UTC in (entry, exit]; a Wednesday rollover counts 3 nights."""
+    nights = 0
+    first = entry_time // DAY
+    for day in range(first, exit_time // DAY + 1):
+        moment = day * DAY + hour * 3600
+        if entry_time < moment <= exit_time:
+            nights += 3 if (day + 3) % 7 == 2 else 1
+    return nights
 
 
 def simulate(
@@ -279,6 +303,16 @@ def simulate(
                 continue
             fill = start + int(np.argmax(touched))
             entry = min(limit, float(o[fill])) if d > 0 else max(limit, float(o[fill]))
+        deadline = session_end
+        if config.max_hold_seconds is not None:
+            deadline = min(deadline, int(t[fill]) + config.max_hold_seconds)
+        if config.weekend_exit is not None:
+            deadline = min(deadline, friday_cutoff(int(t[fill]), config.weekend_exit))
+        if deadline != never:
+            end = min(end, int(np.searchsorted(t, deadline, "left")))
+        if end <= fill:
+            skipped["no_session_left"] += 1
+            continue
         if orders.stop_distance is not None and not np.isnan(orders.stop_distance[k]):
             stop = entry - d * float(orders.stop_distance[k])
         risk = (entry - stop) * d
@@ -329,17 +363,19 @@ def simulate(
                 if trail is not None:
                     current = max(current, best - trail) if d > 0 else min(current, best + trail)
         if exit_index is None:
-            if end < len(t) and session_end != never and t[end] < session_end + 3600 and (config.horizon_bars is None or end < start + config.horizon_bars):
-                exit_index, exit_price = end, float(o[end])  # session exit at the next open
+            if end < len(t) and deadline != never and t[end] < deadline + 3600 and (config.horizon_bars is None or end < start + config.horizon_bars):
+                exit_index, exit_price = end, float(o[end])  # session / hold-time exit at the next open
             else:
                 exit_index, exit_price = end - 1, float(c[end - 1])  # market closed / horizon: last close
         gross = (exit_price - entry) * d / risk
-        rows.append((signal_time, int(t[fill]), int(t[exit_index]), d, entry, stop, exit_price, gross, gross - config.cost / risk, outcome))
+        nights = rollover_nights(int(t[fill]), int(t[exit_index]), config.rollover_utc_hour) if config.swap_per_night else 0
+        net = gross - (config.cost + config.swap_per_night * nights) / risk
+        rows.append((signal_time, int(t[fill]), int(t[exit_index]), d, entry, stop, exit_price, gross, net, outcome, nights))
         free_at = int(t[exit_index]) + exec_bars.period
     if stats is not None:
         stats.update(skipped)
     names = list(Trades.__dataclass_fields__)
-    ints = {"signal_time", "entry_time", "exit_time", "direction", "outcome"}
+    ints = {"signal_time", "entry_time", "exit_time", "direction", "outcome", "swap_nights"}
     if not rows:
         return Trades(*(np.array([], dtype=np.int64 if n in ints else float) for n in names))
     return Trades(*(np.array(col, dtype=np.int64 if n in ints else float) for n, col in zip(names, zip(*rows))))

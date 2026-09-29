@@ -68,6 +68,19 @@ def edges(forecast: np.ndarray, cost_r: np.ndarray) -> tuple[np.ndarray, np.ndar
     return np.maximum(long_edge, short_edge), direction
 
 
+def expected_nights(times: np.ndarray, label: LabelConfig) -> np.ndarray:
+    """Rollovers a trade entered at each time would cross if held to its time limit."""
+    if not label.hold:
+        return np.zeros(len(times))
+    from app.research.intraday import friday_cutoff, rollover_nights
+
+    out = np.empty(len(times))
+    for i, t in enumerate(np.asarray(times).tolist()):
+        end = min(int(t) + label.max_hold_minutes * 60, friday_cutoff(int(t), (20, 45)))
+        out[i] = rollover_nights(int(t), end)
+    return out
+
+
 def rolling_thresholds(times: np.ndarray, edge: np.ndarray, keep: float, *, window_days: int = 60,
                        warmup_days: int = 20, min_history: int = 200) -> np.ndarray:
     """Entry threshold per row = (1 - keep) quantile of this model's own edges over the past window.
@@ -109,6 +122,7 @@ class SymbolModel:
     info: dict = field(default_factory=dict)
     window_days: int = 60
     warmup_days: int = 20
+    swap_per_night: float = 0.0
 
     def forecast(self, x: np.ndarray) -> np.ndarray:
         x = np.asarray(x, dtype=np.float32)
@@ -125,7 +139,8 @@ class SymbolModel:
         should be able to trade (the threshold is learned from the model's own past edges).
         """
         forecast = self.forecast(x)
-        cost_r = self.cost_price / (self.label.barrier_atr * np.asarray(atr, dtype=float))
+        expected_cost = self.cost_price + self.swap_per_night * expected_nights(np.asarray(times), self.label)
+        cost_r = expected_cost / (self.label.barrier_atr * np.asarray(atr, dtype=float))
         edge, direction = edges(forecast, cost_r)
         threshold = rolling_thresholds(np.asarray(times), edge, self.keep, window_days=self.window_days, warmup_days=self.warmup_days)
         trade = self.enabled & (edge > np.maximum(threshold, 0.0))
@@ -148,6 +163,7 @@ class SymbolModel:
             "keep": self.keep,
             "window_days": self.window_days,
             "warmup_days": self.warmup_days,
+            "swap_per_night": self.swap_per_night,
             "enabled": self.enabled,
             "cost_price": self.cost_price,
             "info": self.info,
@@ -180,7 +196,8 @@ class SymbolModel:
             info=manifest.get("info", {}),
             window_days=int(manifest["window_days"]),
             warmup_days=int(manifest["warmup_days"]),
+            swap_per_night=float(manifest.get("swap_per_night", 0.0)),
         )
 
 
-__all__ = ["ARCHITECTURES", "HYPER", "SymbolModel", "edges", "rolling_thresholds", "fit_global", "make_regressor", "out_of_fold_global", "stack"]
+__all__ = ["ARCHITECTURES", "HYPER", "SymbolModel", "edges", "expected_nights", "rolling_thresholds", "fit_global", "make_regressor", "out_of_fold_global", "stack"]

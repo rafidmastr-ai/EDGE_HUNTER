@@ -14,11 +14,11 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from app.ml_edge.data import SymbolData, cost_price
+from app.ml_edge.data import SymbolData, cost_price, swap_price
 from app.ml_edge.features import FeatureFrame
-from app.ml_edge.labels import LabelConfig, triple_barrier
-from app.ml_edge.model import ARCHITECTURES, SymbolModel, edges, fit_global, make_regressor, out_of_fold_global, rolling_thresholds, stack
-from app.research.intraday import DAY, ExecutionConfig, Trades, make_orders, simulate
+from app.ml_edge.labels import LabelConfig, triple_barrier_exits
+from app.ml_edge.model import ARCHITECTURES, SymbolModel, edges, expected_nights, fit_global, make_regressor, out_of_fold_global, rolling_thresholds, stack
+from app.research.intraday import DAY, ExecutionConfig, Trades, make_orders, rollover_nights, simulate
 
 
 def ts(text: str) -> int:
@@ -30,6 +30,7 @@ OOS_END = ts("2025-01-01")
 FOLDS = ((ts("2021-01-01"), ts("2022-01-01")), (ts("2022-01-01"), ts("2023-01-01")), (ts("2023-01-01"), DEV_END))
 EMBARGO = DAY
 LABELS = (LabelConfig(1.0, 8), LabelConfig(1.0, 16), LabelConfig(2.0, 8), LabelConfig(2.0, 16))
+HOLD_LABELS = tuple(LabelConfig(b, 48, max_hold_minutes=720) for b in (2.0, 3.0, 4.0))
 KEEP_FRACTIONS = (0.02, 0.05, 0.10, 0.20)
 MIN_VALIDATION_TRADES = 150
 
@@ -41,6 +42,7 @@ class Rows:
     x: np.ndarray
     atr: np.ndarray
     y: dict[str, np.ndarray] = field(default_factory=dict)
+    nights: dict[str, np.ndarray] = field(default_factory=dict)  # rollovers crossed by the labelled long trade
 
     def mask(self, start: int | None, end: int | None) -> np.ndarray:
         m = np.ones(len(self.time), bool)
@@ -57,7 +59,12 @@ def build_rows(symbols: dict[str, SymbolData], frames: dict[str, FeatureFrame], 
         f = frame.select(frame.tradable)
         r = Rows(name, f.close_time, f.x, f.atr)
         for label in labels:
-            r.y[label.key] = triple_barrier(symbols[name].m1, f.close_time, f.atr, label)
+            y, entry_time, exit_time = triple_barrier_exits(symbols[name].m1, f.close_time, f.atr, label)
+            r.y[label.key] = y
+            r.nights[label.key] = (
+                np.array([rollover_nights(int(a), int(b)) if a else 0 for a, b in zip(entry_time, exit_time)], dtype=float)
+                if label.hold else np.zeros(len(y))
+            )
         rows[name] = r
     return rows
 
@@ -145,7 +152,7 @@ def validation_mask(r: Rows) -> np.ndarray:
     return np.any([r.mask(train_end, val_end) for train_end, val_end in FOLDS], axis=0)
 
 
-def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float) -> dict:
+def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float, swap: float = 0.0) -> dict:
     """Pick architecture and keep-fraction for one symbol on its validation forecasts.
 
     Each fold's forecasts form their own series for the rolling threshold (the same rule
@@ -154,12 +161,14 @@ def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float) -> dict:
     vm = validation_mask(r)
     times = r.time[vm]
     y = r.y[label.key][vm]
-    cost_r = cost / (label.barrier_atr * r.atr[vm])
+    scale = label.barrier_atr * r.atr[vm]
+    expected_cost_r = (cost + swap * expected_nights(times, label)) / scale  # known at decision time
+    realised_cost_r = (cost + swap * r.nights[label.key][vm]) / scale  # what the labelled trade paid
     candidates = []
     for arch in ARCHITECTURES:
         folds, f = fc[arch]
-        edge, direction = edges(f, cost_r)
-        net = direction * y - cost_r
+        edge, direction = edges(f, expected_cost_r)
+        net = direction * y - realised_cost_r
         for keep in KEEP_FRACTIONS:
             threshold = np.full(len(edge), np.inf)
             for k in range(len(FOLDS)):
@@ -182,7 +191,8 @@ def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float) -> dict:
     return {"chosen": best, "candidates": [{k: v for k, v in c.items() if k != "_direction"} for c in candidates], "trials": len(candidates)}
 
 
-def final_models(rows: dict[str, Rows], label: LabelConfig, hyper: str, choices: dict, label_shift: dict | None = None) -> dict[str, SymbolModel]:
+def final_models(rows: dict[str, Rows], label: LabelConfig, hyper: str, choices: dict, label_shift: dict | None = None,
+                 swap: dict[str, float] | None = None) -> dict[str, SymbolModel]:
     models = fit_models(rows, label.key, hyper, DEV_END, label_shift=label_shift)
     out = {}
     for s, r in rows.items():
@@ -198,6 +208,7 @@ def final_models(rows: dict[str, Rows], label: LabelConfig, hyper: str, choices:
             cost_price=cost_price(s, "base"),
             global_model=models["global"],
             symbol_model=models["stacked"][s] if c["architecture"] == "stacked" else models["symbol"].get(s),
+            swap_per_night=(swap or {}).get(s, 0.0),
         )
     return out
 
@@ -211,12 +222,18 @@ def orders_from(r: Rows, direction: np.ndarray, label: LabelConfig, mask: np.nda
     )
 
 
-def execute(symbol_data: SymbolData, orders, label: LabelConfig, level: str = "base", one_position: bool = True) -> Trades:
-    config = ExecutionConfig(cost=cost_price(symbol_data.symbol, level), horizon_bars=label.horizon_bars * 15, one_position=one_position)
-    return simulate(symbol_data.m1, orders, config)
+def execution_config(symbol: str, label: LabelConfig, level: str = "base", one_position: bool = True, swap_multiplier: float = 1.0) -> ExecutionConfig:
+    if label.hold:
+        return ExecutionConfig(cost=cost_price(symbol, level), session_exit=None, last_entry=(20, 0), max_hold_seconds=label.max_hold_minutes * 60,
+                               weekend_exit=(20, 45), swap_per_night=swap_price(symbol, swap_multiplier), one_position=one_position)
+    return ExecutionConfig(cost=cost_price(symbol, level), horizon_bars=label.horizon_bars * 15, one_position=one_position)
+
+
+def execute(symbol_data: SymbolData, orders, label: LabelConfig, level: str = "base", one_position: bool = True, swap_multiplier: float = 1.0) -> Trades:
+    return simulate(symbol_data.m1, orders, execution_config(symbol_data.symbol, label, level, one_position, swap_multiplier))
 
 
 __all__ = [
-    "DEV_END", "EMBARGO", "FOLDS", "LABELS", "OOS_END", "Rows", "build_rows", "choose_symbol", "execute", "final_models",
+    "DEV_END", "EMBARGO", "FOLDS", "HOLD_LABELS", "LABELS", "OOS_END", "Rows", "build_rows", "choose_symbol", "execute", "execution_config", "final_models",
     "fit_models", "forecast", "orders_from", "spearman", "stage1", "validation_forecasts", "validation_mask",
 ]
