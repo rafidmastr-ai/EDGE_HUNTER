@@ -17,7 +17,7 @@ import numpy as np
 from app.ml_edge.data import SymbolData, cost_price
 from app.ml_edge.features import FeatureFrame
 from app.ml_edge.labels import LabelConfig, triple_barrier
-from app.ml_edge.model import ARCHITECTURES, SymbolModel, edges, fit_global, make_regressor, out_of_fold_global, stack
+from app.ml_edge.model import ARCHITECTURES, SymbolModel, edges, fit_global, make_regressor, out_of_fold_global, rolling_thresholds, stack
 from app.research.intraday import DAY, ExecutionConfig, Trades, make_orders, simulate
 
 
@@ -146,8 +146,13 @@ def validation_mask(r: Rows) -> np.ndarray:
 
 
 def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float) -> dict:
-    """Pick architecture and threshold for one symbol on its validation forecasts."""
+    """Pick architecture and keep-fraction for one symbol on its validation forecasts.
+
+    Each fold's forecasts form their own series for the rolling threshold (the same rule
+    the final model uses on OOS and live), so the first ``warmup_days`` of a fold cannot trade.
+    """
     vm = validation_mask(r)
+    times = r.time[vm]
     y = r.y[label.key][vm]
     cost_r = cost / (label.barrier_atr * r.atr[vm])
     candidates = []
@@ -155,20 +160,26 @@ def choose_symbol(r: Rows, label: LabelConfig, fc: dict, cost: float) -> dict:
         folds, f = fc[arch]
         edge, direction = edges(f, cost_r)
         net = direction * y - cost_r
-        ok = np.isfinite(net)
         for keep in KEEP_FRACTIONS:
-            theta = float(np.quantile(edge[ok], 1 - keep))
-            sel = ok & (edge > theta)
+            threshold = np.full(len(edge), np.inf)
+            for k in range(len(FOLDS)):
+                fm = folds == k
+                threshold[fm] = rolling_thresholds(times[fm], edge[fm], keep)
+            sel = np.isfinite(net) & (edge > np.maximum(threshold, 0.0))
             if sel.sum() < MIN_VALIDATION_TRADES:
                 continue
             per_fold = [float(net[sel & (folds == k)].mean()) if (sel & (folds == k)).any() else float("nan") for k in range(len(FOLDS))]
-            candidates.append({"architecture": arch, "keep": keep, "theta": theta, "trades": int(sel.sum()),
-                               "mean_net_r": float(net[sel].mean()), "per_fold": per_fold})
+            candidates.append({"architecture": arch, "keep": keep, "trades": int(sel.sum()), "mean_net_r": float(net[sel].mean()),
+                               "per_fold": per_fold, "_direction": np.where(sel, direction, 0)})
+    if not candidates:
+        return {"chosen": {"architecture": "global", "keep": KEEP_FRACTIONS[0], "trades": 0, "mean_net_r": float("nan"),
+                           "per_fold": [], "enabled": False, "positive_folds": 0, "_direction": np.zeros(int(vm.sum()), int)},
+                "candidates": [], "trials": 0}
     best = max(candidates, key=lambda c: c["mean_net_r"])
     positive_folds = sum(1 for v in best["per_fold"] if v > 0)
     best["enabled"] = bool(best["mean_net_r"] > 0 and positive_folds >= 2)
     best["positive_folds"] = positive_folds
-    return {"chosen": best, "candidates": candidates, "trials": len(candidates)}
+    return {"chosen": best, "candidates": [{k: v for k, v in c.items() if k != "_direction"} for c in candidates], "trials": len(candidates)}
 
 
 def final_models(rows: dict[str, Rows], label: LabelConfig, hyper: str, choices: dict, label_shift: dict | None = None) -> dict[str, SymbolModel]:
@@ -182,7 +193,7 @@ def final_models(rows: dict[str, Rows], label: LabelConfig, hyper: str, choices:
             hyper=hyper,
             label=label,
             feature_names=(),
-            theta=c["theta"],
+            keep=c["keep"],
             enabled=c["enabled"],
             cost_price=cost_price(s, "base"),
             global_model=models["global"],

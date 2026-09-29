@@ -109,6 +109,17 @@ class DriftBenchmarkTests(unittest.TestCase):
         self.assertAlmostEqual(fill_open - bench.target[0], 2.0)  # same 2R target
 
 
+class DriftBenchmarkTargetRrTests(unittest.TestCase):
+    def test_benchmark_keeps_rr_targets(self) -> None:
+        from app.research.intraday import drift_benchmark
+
+        bars = m1(flat(3) + [(100, 100.2, 99.9, 100)] + flat(5))
+        orders = make_orders([bars.open_time[3]], [1], [np.nan], [np.nan], stop_distance=np.array([1.0]), target_rr=np.array([1.5]))
+        trades = simulate(bars, orders, ExecutionConfig(cost=0.0))
+        bench = drift_benchmark(trades, orders, -1, bars)
+        self.assertAlmostEqual(bench.target[0], bars.open[3] - 1.5)
+
+
 class DataToolsTests(unittest.TestCase):
     def test_resample_and_alignment_are_causal(self) -> None:
         bars = m1([(i, i + 0.5, i - 0.5, i + 0.2) for i in range(120)], start=DAY0 + 10 * 3600)

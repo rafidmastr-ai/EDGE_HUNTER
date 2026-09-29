@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.ml_edge.data import discover_symbols, load_symbol  # noqa: E402
 from app.ml_edge.features import FEATURE_VERSION, build_all  # noqa: E402
-from app.ml_edge.model import HYPER, SymbolModel, edges  # noqa: E402
+from app.ml_edge.model import HYPER, SymbolModel  # noqa: E402
 from app.ml_edge.walkforward import (  # noqa: E402
     DEV_END,
     FOLDS,
@@ -85,23 +85,20 @@ def main() -> int:
     # ---- stage 2: architecture + threshold per symbol (validation folds)
     fc = validation_forecasts(rows, label, hyper)
     choices = {s: choose_symbol(rows[s], label, fc[s], symbols_cost(s)) for s in rows}
-    report["choices"] = {s: c["chosen"] for s, c in choices.items()}
+    report["choices"] = {s: public(c["chosen"]) for s, c in choices.items()}
     trials = len(table) + sum(c["trials"] for c in choices.values())
     report["trials"] = {"stage1_label_x_hyper": len(table), "stage2_arch_x_threshold_per_symbol": {s: c["trials"] for s, c in choices.items()}, "total": trials}
     for s, c in choices.items():
         ch = c["chosen"]
-        log(f"  {s}: {ch['architecture']} keep={ch['keep']} theta={ch['theta']:+.4f} val net R={ch['mean_net_r']:+.4f} folds+={ch['positive_folds']}/3 enabled={ch['enabled']}")
+        log(f"  {s}: {ch['architecture']} keep={ch['keep']} val net R={ch['mean_net_r']:+.4f} n={ch['trades']} folds+={ch['positive_folds']}/3 enabled={ch['enabled']}")
 
     # validation trades (harness) with the chosen architecture / threshold per symbol
     results: dict = {s: {} for s in rows}
     for s, r in rows.items():
         ch = choices[s]["chosen"]
         vm = validation_mask(r)
-        _, f = fc[s][ch["architecture"]]
-        cost_r = symbols_cost(s) / (label.barrier_atr * r.atr[vm])
-        edge, direction = edges(f, cost_r)
         full_dir = np.zeros(len(r.time), int)
-        full_dir[np.flatnonzero(vm)] = np.where(edge > ch["theta"], direction, 0)
+        full_dir[np.flatnonzero(vm)] = ch["_direction"]
         trades = execute(symbols[s], orders_from(r, full_dir, label, vm), label)
         results[s]["validation"] = full_metrics(trades)
         results[s]["validation_by_fold"] = {
@@ -118,11 +115,11 @@ def main() -> int:
     for s, r in rows.items():
         model = final[s]
         model.feature_names = feature_names
-        model.info = {"trained_through": iso(DEV_END), "validation": choices[s]["chosen"], "stage1": report["stage1_choice"]}
+        model.info = {"trained_through": iso(DEV_END), "validation": public(choices[s]["chosen"]), "stage1": report["stage1_choice"]}
         after = r.mask(DEV_END, None)
-        direction, fcast = model.decide(r.x[after], r.atr[after])
+        direction, fcast = model.decide(r.time[after], r.x[after], r.atr[after])
         shadow = SymbolModel(**{**model.__dict__, "enabled": True})
-        shadow_dir, _ = shadow.decide(r.x[after], r.atr[after])
+        shadow_dir, _ = shadow.decide(r.time[after], r.x[after], r.atr[after])
         full_dir = np.zeros(len(r.time), int)
         full_shadow = np.zeros(len(r.time), int)
         full_dir[np.flatnonzero(after)] = direction
@@ -154,7 +151,7 @@ def main() -> int:
         # reproducibility: saved model must reproduce the same decisions
         model.save(MODELS / s)
         loaded = SymbolModel.load(MODELS / s)
-        again, _ = loaded.decide(r.x[after], r.atr[after])
+        again, _ = loaded.decide(r.time[after], r.x[after], r.atr[after])
         results[s]["reload_identical_decisions"] = bool(np.array_equal(again, direction))
         shutil.copy(MODELS / s / "manifest.json", manifests_dir / f"{s}_manifest.json")
         oos_tr = seg_trades(by_level["base"], "oos")
@@ -163,7 +160,7 @@ def main() -> int:
         spot[s] = [{
             "signal": iso(oos_tr.signal_time[i]), "direction": "BUY" if oos_tr.direction[i] > 0 else "SELL",
             "forecast_gross_r": round(float(shadow.forecast(r.x[[index[int(oos_tr.signal_time[i])]]])[0]), 4),
-            "theta": round(model.theta, 4), "entry": round(float(oos_tr.entry[i]), 5), "stop": round(float(oos_tr.stop[i]), 5),
+            "keep_fraction": model.keep, "entry": round(float(oos_tr.entry[i]), 5), "stop": round(float(oos_tr.stop[i]), 5),
             "exit_time": iso(oos_tr.exit_time[i]), "exit": round(float(oos_tr.exit[i]), 5), "r_net": round(float(oos_tr.r_net[i]), 3),
         } for i in pick]
         log(f"  {s}: OOS avg R={results[s]['oos'].get('avg_r')} n={results[s]['oos'].get('trades')} | 2025 avg R={results[s]['forward_2025'].get('avg_r')} | enabled={model.enabled}")
@@ -187,23 +184,27 @@ def main() -> int:
                                          "ic_drop": dict(sorted(((n, round(float(np.nanmean(v)), 5)) for n, v in drops.items()), key=lambda kv: -kv[1]))}
     log("feature influence done")
 
-    # ---- null test: training labels circularly shifted (real features, meaningless targets)
-    shift = {s: random.Random(i).uniform(0.3, 0.7) for i, s in enumerate(rows)}
-    fc_null = validation_forecasts(rows, label, hyper, label_shift=shift)
-    choices_null = {s: choose_symbol(rows[s], label, fc_null[s], symbols_cost(s)) for s in rows}
-    final_null = final_models(rows, label, hyper, choices_null, label_shift=shift)
-    null = {}
-    for s, r in rows.items():
-        after = r.mask(DEV_END, None)
-        shadow = SymbolModel(**{**final_null[s].__dict__, "enabled": True})
-        d, _ = shadow.decide(r.x[after], r.atr[after])
-        full = np.zeros(len(r.time), int)
-        full[np.flatnonzero(after)] = d
-        tr = execute(symbols[s], orders_from(r, full, label, after), label)
-        null[s] = {"validation_net_r": round(choices_null[s]["chosen"]["mean_net_r"], 4), "enabled": choices_null[s]["chosen"]["enabled"],
-                   "oos_avg_r": full_metrics(seg_trades(tr, "oos")).get("avg_r"), "forward_avg_r": full_metrics(seg_trades(tr, "forward_2025")).get("avg_r")}
-    report["null_test_shifted_labels"] = null
-    log("null test done")
+    # ---- null test: training labels circularly shifted (real features, meaningless targets), 5 repeats
+    null_runs = []
+    for seed in range(5):
+        shift = {s: random.Random(100 * seed + i).uniform(0.2, 0.8) for i, s in enumerate(rows)}
+        fc_null = validation_forecasts(rows, label, hyper, label_shift=shift)
+        choices_null = {s: choose_symbol(rows[s], label, fc_null[s], symbols_cost(s)) for s in rows}
+        final_null = final_models(rows, label, hyper, choices_null, label_shift=shift)
+        run = {}
+        for s, r in rows.items():
+            after = r.mask(DEV_END, None)
+            shadow = SymbolModel(**{**final_null[s].__dict__, "enabled": True})
+            d, _ = shadow.decide(r.time[after], r.x[after], r.atr[after])
+            full = np.zeros(len(r.time), int)
+            full[np.flatnonzero(after)] = d
+            tr = execute(symbols[s], orders_from(r, full, label, after), label)
+            ch = choices_null[s]["chosen"]
+            run[s] = {"validation_net_r": round(ch["mean_net_r"], 4), "enabled": ch["enabled"],
+                      "oos_avg_r": full_metrics(seg_trades(tr, "oos")).get("avg_r"), "forward_avg_r": full_metrics(seg_trades(tr, "forward_2025")).get("avg_r")}
+        null_runs.append(run)
+        log(f"null run {seed + 1}/5 done")
+    report["null_test_shifted_labels"] = null_runs
 
     # ---- acceptance per symbol (rules fixed in the plan)
     verdict = {}
@@ -221,12 +222,18 @@ def main() -> int:
             "beats drift benchmark": drift is not None and (oos.get("avg_r") or -1) > drift,
             "beats random direction": (oos.get("avg_r") or -1) > (bench.get("random_direction_mean_of_20") or 0),
         }
+        null_val = [run[s]["validation_net_r"] for run in null_runs]
+        checks["validation beats all 5 null runs"] = bool(choices[s]["chosen"]["mean_net_r"] > max(null_val))
         verdict[s] = {"accepted": all(checks.values()), "checks": checks}
     report["verdict"] = verdict
     RESULTS.mkdir(parents=True, exist_ok=True)
     (RESULTS / "ML_EDGE_REPORT.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     log(f"done: accepted = {[s for s, v in verdict.items() if v['accepted']]}")
     return 0
+
+
+def public(choice: dict) -> dict:
+    return {k: v for k, v in choice.items() if not k.startswith("_")}
 
 
 def symbols_cost(symbol: str) -> float:

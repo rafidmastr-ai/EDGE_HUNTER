@@ -454,13 +454,16 @@ def drift_benchmark(trades: Trades, orders: Orders, direction: int, exec_bars: B
     instrument's drift (e.g. gold rising through the sample).
     """
     target_by_time = dict(zip(orders.signal_time.tolist(), orders.target.tolist()))
+    rr_by_time = dict(zip(orders.signal_time.tolist(), orders.target_rr.tolist())) if orders.target_rr is not None else {}
     signal, stop, target = [], [], []
     for time_, fill_time, entry, trade_stop in zip(
         trades.signal_time.tolist(), trades.entry_time.tolist(), trades.entry.tolist(), trades.stop.tolist()
     ):
         risk = abs(entry - trade_stop)
         original_target = target_by_time.get(time_, np.nan)
-        rr = np.nan if np.isnan(original_target) else abs(original_target - entry) / risk
+        rr = rr_by_time.get(time_, np.nan)
+        if np.isnan(rr) and not np.isnan(original_target):
+            rr = abs(original_target - entry) / risk
         price = float(exec_bars.open[np.searchsorted(exec_bars.open_time, fill_time, "left")])
         signal.append(fill_time)
         stop.append(price - direction * risk)

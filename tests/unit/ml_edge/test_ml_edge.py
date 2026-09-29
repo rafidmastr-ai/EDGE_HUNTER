@@ -134,13 +134,16 @@ class ModelTests(unittest.TestCase):
         y = np.tanh(x[:, 0])
         g = make_regressor("small").fit(x, y)
         s = make_regressor("small", symbol_level=True).fit(np.column_stack([x, g.predict(x)]), y)
-        model = SymbolModel("EURUSD", "stacked", "small", LabelConfig(1.0, 8), ("a", "b", "c", "d"), 0.05, True,
-                            cost_price("EURUSD"), g, s)
+        model = SymbolModel("EURUSD", "stacked", "small", LabelConfig(1.0, 8), ("a", "b", "c", "d"), 0.10, True,
+                            cost_price("EURUSD"), g, s, warmup_days=1)
         atr = np.full(len(x), 0.001)
+        times = START + 900 * np.arange(len(x))
         with tempfile.TemporaryDirectory() as tmp:
             model.save(Path(tmp))
             loaded = SymbolModel.load(Path(tmp))
-            self.assertTrue(np.array_equal(loaded.decide(x, atr)[0], model.decide(x, atr)[0]))
+            decisions = model.decide(times, x, atr)[0]
+            self.assertTrue(decisions.any())
+            self.assertTrue(np.array_equal(loaded.decide(times, x, atr)[0], decisions))
             blob = Path(tmp) / "model.joblib"
             blob.write_bytes(blob.read_bytes() + b"x")
             with self.assertRaises(ValueError):
@@ -149,8 +152,22 @@ class ModelTests(unittest.TestCase):
     def test_disabled_model_never_trades(self) -> None:
         x = np.zeros((10, 1), dtype=np.float32)
         g = make_regressor("small").fit(np.r_[x, x + 1], np.r_[np.zeros(10), np.ones(10)])
-        model = SymbolModel("XAUUSD", "global", "small", LabelConfig(1.0, 8), ("a",), -1.0, False, 0.1, g, None)
-        self.assertFalse(model.decide(x + 1, np.ones(10))[0].any())
+        model = SymbolModel("XAUUSD", "global", "small", LabelConfig(1.0, 8), ("a",), 0.5, False, 0.1, g, None)
+        self.assertFalse(model.decide(START + 900 * np.arange(10), x + 1, np.ones(10))[0].any())
+
+    def test_rolling_threshold_uses_only_previous_days(self) -> None:
+        from app.ml_edge.model import rolling_thresholds
+
+        times = START + 900 * np.arange(96 * 30)  # 30 days, 96 rows per day
+        edge = np.arange(len(times), dtype=float)
+        thr = rolling_thresholds(times, edge, 0.10, window_days=5, warmup_days=3, min_history=50)
+        self.assertTrue(np.isinf(thr[: 96 * 3]).all())
+        day10 = 96 * 10
+        expected = np.quantile(edge[96 * 5 : day10], 0.90)
+        self.assertAlmostEqual(thr[day10], expected)
+        edge_changed = edge.copy()
+        edge_changed[day10:] = -1e9  # later edges must not affect day-10 thresholds
+        self.assertAlmostEqual(rolling_thresholds(times, edge_changed, 0.10, window_days=5, warmup_days=3, min_history=50)[day10], expected)
 
 
 if __name__ == "__main__":
