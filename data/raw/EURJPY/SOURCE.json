@@ -67,5 +67,26 @@
       "daily_break_utc": "none (as expected for FX)"
     }
   },
-  "original_csv_files_are_unmodified": true
+  "original_csv_files_are_unmodified": true,
+  "additional_exports_2026_09_29": {
+    "files": {
+      "EURJPY_M1_2026.csv": {
+        "rows": 275918,
+        "first_server_time": "2026-01-02T00:00:00",
+        "last_server_time": "2026-09-28T23:59:00",
+        "rows_overlapping_existing_files": 0,
+        "overlap_rows_differing": 0
+      }
+    },
+    "same_server_and_timezone_evidence": "every overlapping row is identical (timestamp and OHLC) to the previously committed export",
+    "new_rows_after_existing_data": 275918,
+    "new_rows_utc_range": [
+      "2026-01-01 22:00:00+00:00",
+      "2026-09-28 20:59:00+00:00"
+    ],
+    "unconvertible_rows": 0,
+    "release_timing_check_2025_09_onwards": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 19/192 days vs 0 at 07:30 and 1 at 09:30 (after Europe/Athens -> UTC)",
+    "loader_note": "files are read together; duplicate timestamps keep the first file in name order (the original export)",
+    "original_csv_files_are_unmodified": true
+  }
 }

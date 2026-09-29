@@ -56,5 +56,33 @@
       "daily_break_utc": "none (as expected for FX)"
     }
   },
-  "original_csv_files_are_unmodified": true
+  "original_csv_files_are_unmodified": true,
+  "additional_exports_2026_09_29": {
+    "files": {
+      "EURUSD_M1_2025_export2.csv": {
+        "rows": 370639,
+        "first_server_time": "2025-01-02T00:00:00",
+        "last_server_time": "2025-12-31T23:59:00",
+        "rows_overlapping_existing_files": 246023,
+        "overlap_rows_differing": 0
+      },
+      "EURUSD_M1_2026.csv": {
+        "rows": 275942,
+        "first_server_time": "2026-01-02T00:00:00",
+        "last_server_time": "2026-09-28T23:59:00",
+        "rows_overlapping_existing_files": 0,
+        "overlap_rows_differing": 0
+      }
+    },
+    "same_server_and_timezone_evidence": "every overlapping row is identical (timestamp and OHLC) to the previously committed export",
+    "new_rows_after_existing_data": 400558,
+    "new_rows_utc_range": [
+      "2025-08-31 21:01:00+00:00",
+      "2026-09-28 20:59:00+00:00"
+    ],
+    "unconvertible_rows": 0,
+    "release_timing_check_2025_09_onwards": "weekday largest 1-minute range within +/-2h of 08:30 New York falls exactly at 08:30 on 45/279 days vs 3 at 07:30 and 3 at 09:30 (after Europe/Athens -> UTC)",
+    "loader_note": "files are read together; duplicate timestamps keep the first file in name order (the original export)",
+    "original_csv_files_are_unmodified": true
+  }
 }
