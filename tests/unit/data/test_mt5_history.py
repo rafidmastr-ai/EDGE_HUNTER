@@ -85,7 +85,7 @@ class RepositoryHistoryTests(unittest.TestCase):
 
     def test_every_symbol_folder_declares_the_athens_server_clock(self) -> None:
         folders = sorted(p for p in self.RAW.iterdir() if (p / "SOURCE.json").exists())
-        self.assertIn("AUDJPY", [p.name for p in folders])
+        self.assertTrue({"AUDJPY", "CADJPY"} <= {p.name for p in folders})
         for folder in folders:
             source = json.loads((folder / "SOURCE.json").read_text(encoding="utf-8"))
             self.assertEqual(source["server_tz"], "Europe/Athens", folder.name)

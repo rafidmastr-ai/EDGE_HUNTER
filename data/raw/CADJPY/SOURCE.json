@@ -1,0 +1,28 @@
+{
+  "symbol": "CADJPY",
+  "source": "MetaTrader 5 export (owner-supplied 2026-09-30), same format and server as the other symbols",
+  "timeframe": "M1",
+  "columns": ["timestamp", "open", "high", "low", "close", "tick_volume", "spread"],
+  "timestamp_as_written": "ISO 8601 with '+00:00' suffix, but the clock values are BROKER SERVER TIME",
+  "server_tz": "Europe/Athens",
+  "server_offset_rule": "UTC+2 standard time, UTC+3 from the last Sunday of March to the last Sunday of October (EU DST rules)",
+  "files": {
+    "CADJPY_M1_2026.csv": {
+      "rows": 275894,
+      "first_server_time": "2026-01-02T00:01:00",
+      "last_server_time": "2026-09-28T23:59:00",
+      "duplicates": 0,
+      "invalid_ohlc_rows": 0,
+      "gaps_over_2h_outside_weekends": ["2026-02-27 about 5.5 h (server time; the same gap exists in AUDJPY)"]
+    }
+  },
+  "verification_2026_09_30": {
+    "method": "1-minute log returns of CADJPY vs EURJPY and AUDJPY of the same server (common JPY factor), shifted -120..+120 minutes; no USDCAD file for an exact cross",
+    "return_correlation_by_shift_minutes": {
+      "EURJPY": {"-120": 0.001, "-60": -0.009, "-1": -0.011, "0": 0.715, "1": -0.021, "60": -0.005, "120": 0.001},
+      "AUDJPY": {"-120": -0.001, "-60": -0.006, "-1": -0.021, "0": 0.601, "1": -0.019, "60": -0.009, "120": 0.0}
+    },
+    "conclusion": "same clock as the other symbols -> Europe/Athens server time"
+  },
+  "original_csv_files_are_unmodified": true
+}
