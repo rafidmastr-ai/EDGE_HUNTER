@@ -54,7 +54,11 @@ class FrontendContractTests(unittest.TestCase):
     def test_edge_ml_card_is_separate_from_the_main_signal(self) -> None:
         self.assertIn('id="edge-ml-card"', self.html)
         self.assertIn('id="edge-ml-body"', self.html)
-        self.assertIn("تجريبي", self.html)
+        self.assertIn("EDGE ML — حالة النماذج", self.html)
+        self.assertIn('id="recommendation-source"', self.html)
+        # an empty symbol field is sent as null -> the models pick the best recommendation
+        self.assertIn("symbol: el('symbol').value.trim() || null", self.js)
+        self.assertIn("renderRecommendationSource(data)", self.js)
         self.assertIn("renderEdgeML(data.metadata?.edge_ml)", self.js)
         render = self.js.split("function renderEdgeML(edge)", 1)[1].split("function clearResult", 1)[0]
         # model values are written with textContent only, never as HTML

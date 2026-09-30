@@ -108,6 +108,129 @@ class LocalOHLCAnalysisService:
         self,
         request: AnalyzeRequest,
     ) -> tuple[dict, list[tuple[str, StrategySignal, dict]]]:
+        """Analysis with live EDGE ML recommendations taking priority over the classic engine.
+
+        - symbol empty (None): the best active model recommendation across all symbols;
+          if no model is signalling, NO_CLEAR_SIGNAL on the symbol nearest to a signal.
+        - symbol with an active model signal: the model recommendation is the main result.
+        - otherwise: the classic multi-strategy analysis, unchanged.
+        """
+        auto = request.symbol is None
+        recommendation, ranked = None, []
+        if auto:
+            if self.edge_ml is None:
+                raise ValueError("symbol is required when EDGE ML is disabled")
+            recommendation, ranked = self.edge_ml.best_recommendation()
+            symbol = recommendation["symbol"] if recommendation else self.edge_ml.closest_symbol()
+            request = request.model_copy(update={"symbol": symbol})
+        elif self.edge_ml is not None:
+            try:
+                recommendation = self.edge_ml.recommendation(request.symbol)
+            except Exception:  # the model layer must never break the classic analysis
+                recommendation = None
+        result, observations = self._analyze_classic(request)
+        if auto:
+            result["metadata"]["edge_ml"] = self.edge_ml_status(None)
+            result["metadata"]["edge_ml_ranked"] = ranked
+        if recommendation is not None:
+            self._apply_model_recommendation(result, request, recommendation, auto=auto)
+        elif auto:
+            self._apply_no_recommendation(result)
+        else:
+            result["metadata"]["recommendation_source"] = "classic"
+        return result, observations
+
+    def _apply_model_recommendation(self, result: dict, request: AnalyzeRequest, rec: dict, *, auto: bool) -> None:
+        classic = {key: result.get(key) for key in ("direction", "confidence", "confidence_label_ar", "selected_strategy",
+                                                     "selected_variant", "entry", "target", "stop_loss")}
+        forward = rec["research_results"].get("new_forward", {})
+        win_rate = forward.get("win_rate")
+        confidence = round(100.0 * win_rate, 1) if win_rate is not None else 50.0
+        label = "قوي" if confidence >= 65 else "متوسط" if confidence >= 55 else "ضعيف"
+        entry, stop, target = rec["entry"], rec["stop_loss"], rec["take_profit"]
+        lot_size, impact = self._model_lot_and_impact(request, entry, stop, target)
+        bar_utc = datetime.fromisoformat(rec["bar_close_utc"])
+        bar_baghdad = bar_utc.astimezone(timezone(timedelta(hours=3)))
+        reasons = [
+            f"توصية نموذج EDGE ML ({rec['model']}) — {rec['variant_title_ar']}.",
+            f"القرار عند إغلاق شمعة M15 الساعة {bar_utc:%H:%M} UTC ({bar_baghdad:%H:%M} بتوقيت بغداد)، قبل {rec['age_minutes']:.0f} دقيقة.",
+            f"العائد المتوقع للنموذج: {rec['expected_r']:+.2f}R بعد السبريد (نسبة الهدف إلى الوقف 1:1، الوقف والهدف = 2 × ATR على M15).",
+            f"الخروج: {rec['exit_rule_ar']}.",
+            "الدخول المرجعي هو آخر سعر إغلاق؛ ادخل بسعر السوق الحالي وحافظ على نفس مسافة الوقف والهدف.",
+        ]
+        if forward:
+            reasons.append(
+                f"نتائج الاختبار الأمامي للنموذج: {forward.get('trades')} صفقة، فوز {100 * (forward.get('win_rate') or 0):.0f}%، "
+                f"متوسط {forward.get('avg_r', 0):+.2f}R، PF {forward.get('profit_factor')}."
+            )
+        reasons.append("توصية من نموذج إحصائي وليست ضماناً — نفّذها يدوياً وبمخاطرة مناسبة.")
+        result.update({
+            "status": "success",
+            "direction": rec["direction"],
+            "confidence": confidence,
+            "confidence_label_ar": label,
+            "selected_strategy": f"EDGE ML {rec['variant']}",
+            "selected_variant": rec["model"],
+            "entry": entry,
+            "target": target,
+            "stop_loss": stop,
+            "risk_reward": 1.0,
+            "lot_size": lot_size,
+            "capital_impact": impact,
+            "reasons": reasons,
+        })
+        result["metadata"]["recommendation_source"] = "edge_ml_auto" if auto else "edge_ml"
+        result["metadata"]["model_recommendation"] = rec
+        result["metadata"]["classic_analysis"] = classic
+
+    def _apply_no_recommendation(self, result: dict) -> None:
+        classic = {key: result.get(key) for key in ("direction", "confidence", "selected_strategy", "entry", "target", "stop_loss")}
+        result.update({
+            "status": "no_clear_signal",
+            "direction": "NO_CLEAR_SIGNAL",
+            "confidence": 0.0,
+            "confidence_label_ar": "لا توجد توصية",
+            "selected_strategy": None,
+            "selected_variant": None,
+            "entry": None,
+            "target": None,
+            "stop_loss": None,
+            "risk_reward": None,
+            "capital_impact": None,
+            "reasons": [
+                "لا توجد توصية نشطة من نماذج EDGE ML الآن على أي زوج.",
+                "النماذج تُحدَّث بعد إغلاق كل شمعة M15 (كل 15 دقيقة)؛ أعد المحاولة لاحقاً أو اختر رمزاً محدداً.",
+                f"الرسم يعرض {result['symbol']}، أقرب زوج إلى إعطاء إشارة.",
+            ],
+        })
+        result["metadata"]["recommendation_source"] = "edge_ml_auto"
+        result["metadata"]["classic_analysis"] = classic
+
+    def _model_lot_and_impact(self, request: AnalyzeRequest, entry: float, stop: float, target: float):
+        """Lot and money figures with the risk converted to USD (JPY-quoted pairs use the live USDJPY)."""
+        if request.lot_mode == "manual":
+            lot = round(request.lot_size or 0.01, 2)
+        else:
+            lot = 0.01
+        quote_usd = self.edge_ml.quote_to_usd(request.symbol) if self.edge_ml is not None else None
+        if request.capital is None or quote_usd is None:
+            return lot, None
+        contract = _contract_size_for_symbol(request.symbol)
+        risk_amount = request.capital * (request.risk_percent / 100.0)
+        usd_per_lot_at_stop = abs(entry - stop) * contract * quote_usd
+        if request.lot_mode != "manual" and usd_per_lot_at_stop > 0:
+            lot = round(math.floor(max(0.01, min(100.0, risk_amount / usd_per_lot_at_stop)) * 100) / 100, 2)
+        impact = CapitalImpact(
+            target_profit=round(abs(target - entry) * contract * quote_usd * lot, 2),
+            stop_loss_loss=round(usd_per_lot_at_stop * lot, 2),
+            risk_amount=round(risk_amount, 2),
+        )
+        return lot, impact.model_dump()
+
+    def _analyze_classic(
+        self,
+        request: AnalyzeRequest,
+    ) -> tuple[dict, list[tuple[str, StrategySignal, dict]]]:
         """Return the analysis plus the actionable strategy setups it observed.
 
         Observations are (timeframe, raw strategy setup annotated with the learned

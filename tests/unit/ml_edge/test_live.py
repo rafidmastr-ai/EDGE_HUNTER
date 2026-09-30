@@ -14,7 +14,7 @@ from app.db.migrations import MigrationRunner
 from app.ml_edge.data import SymbolData, cost_price
 from app.ml_edge.features import build_all
 from app.ml_edge.labels import LabelConfig
-from app.ml_edge.live import SYMBOLS, EdgeMLService, market_open
+from app.ml_edge.live import SYMBOLS, EdgeMLService, LatestDecision, market_open, normalize_symbol
 from app.ml_edge.live_store import M1Store, StoredSeries, fetch_updates
 from app.ml_edge.model import SymbolModel
 from app.ml_edge.walkforward import execution_config
@@ -22,7 +22,8 @@ from app.providers.models import LiveProviderError
 from app.research.intraday import Bars, make_orders, simulate
 
 START = 1_767_571_200  # 2026-01-05 00:00 UTC (Monday)
-PRICES = {"AUDUSD": 0.66, "EURJPY": 160.0, "EURUSD": 1.08, "GBPUSD": 1.27, "NZDUSD": 0.60, "XAUUSD": 2400.0}
+PRICES = {"AUDUSD": 0.66, "EURJPY": 160.0, "EURUSD": 1.08, "GBPUSD": 1.27, "NZDUSD": 0.60, "XAUUSD": 2400.0,
+          "AUDJPY": 105.0, "CADJPY": 110.0}
 
 
 def synthetic(symbol: str, days: int, seed: int) -> StoredSeries:
@@ -176,7 +177,7 @@ class ServiceTests(unittest.TestCase):
         svc._paper_start = last - 20 * 86400
         svc.refresh(now, fetch=False)
         self.assertIsNone(svc.state.last_error)
-        latest = svc.status("EURJPY")["models"][0]["latest"]
+        latest = svc.status("EURJPY", now=now)["models"][0]["latest"]
         self.assertTrue(latest["fresh"])
         self.assertIn(latest["direction"], {"BUY", "SELL", "NONE"})
 
@@ -207,8 +208,72 @@ class ServiceTests(unittest.TestCase):
     def test_old_decision_is_stale(self) -> None:
         svc = self.service()
         last = int(self.series["EURJPY"].t[-1])
-        svc.refresh(datetime.fromtimestamp(last + 3 * 3600, tz=timezone.utc), fetch=False)
-        self.assertFalse(svc.status("EURJPY")["models"][0]["latest"]["fresh"])
+        later = datetime.fromtimestamp(last + 3 * 3600, tz=timezone.utc)
+        svc.refresh(later, fetch=False)
+        self.assertFalse(svc.status("EURJPY", now=later)["models"][0]["latest"]["fresh"])
+
+
+class RecommendationTests(unittest.TestCase):
+    MODELS = Path(__file__).resolve().parents[3] / "models" / "edge_ml"
+    NOW = datetime(2026, 9, 29, 10, 5, tzinfo=timezone.utc)
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.svc = EdgeMLService(self.MODELS, M1Store(Path(self.tmp.name), SYMBOLS))
+        self.svc.ensure_loaded()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def decide(self, key: str, direction: str, expected_r: float, minutes_ago: int = 5, forecast: float = 0.3) -> None:
+        bar = (self.NOW - timedelta(minutes=minutes_ago)).isoformat()
+        d = 1 if direction == "BUY" else -1
+        self.svc.state.decisions[key] = LatestDecision(bar, direction, forecast * d, 0.1, 150.0, 150.0 - d * 0.2,
+                                                       150.0 + d * 0.2, True, expected_r)
+
+    def test_all_enabled_models_and_yen_crosses_are_served(self) -> None:
+        keys = {m.key for m in self.svc.models}
+        self.assertEqual(keys, {"A/AUDUSD", "A/EURJPY", "A/GBPUSD", "A/NZDUSD", "B1/EURJPY", "B1/GBPUSD",
+                                "B1/NZDUSD", "B1/XAUUSD", "B1/AUDJPY", "B1/CADJPY"})
+        self.assertEqual(self.svc.load_errors, {})
+
+    def test_best_recommendation_ranks_by_expected_r_and_ignores_stale_or_none(self) -> None:
+        self.decide("B1/EURJPY", "SELL", 0.20)
+        self.decide("B1/CADJPY", "BUY", 0.35)
+        self.decide("A/GBPUSD", "BUY", 0.90, minutes_ago=60)  # stale: older than the refresh window
+        self.svc.state.decisions["B1/XAUUSD"] = LatestDecision((self.NOW - timedelta(minutes=5)).isoformat(), "NONE", 0.5)
+        best, ranked = self.svc.best_recommendation(self.NOW)
+        self.assertEqual(best["symbol"], "CADJPY")
+        self.assertEqual([r["model"] for r in ranked], ["B1/CADJPY", "B1/EURJPY"])
+        self.assertEqual(best["risk_reward"], 1.0)
+        self.assertIn("12 ساعة", best["exit_rule_ar"])
+        self.assertIn("new_forward", best["research_results"])
+
+    def test_symbol_recommendation_accepts_the_ui_slash_form(self) -> None:
+        self.decide("B1/XAUUSD", "SELL", 0.1)
+        self.assertEqual(normalize_symbol("xau/usd"), "XAUUSD")
+        self.assertEqual(self.svc.recommendation("XAU/USD", self.NOW)["model"], "B1/XAUUSD")
+        self.assertEqual([m["model"] for m in self.svc.status("XAU/USD")["models"]], ["B1/XAUUSD"])
+        self.assertIsNone(self.svc.recommendation("EURUSD", self.NOW))
+
+    def test_both_variants_signalling_prefers_the_higher_expected_r(self) -> None:
+        self.decide("A/EURJPY", "BUY", 0.15)
+        self.decide("B1/EURJPY", "BUY", 0.25)
+        self.assertEqual(self.svc.recommendation("EURJPY", self.NOW)["model"], "B1/EURJPY")
+
+    def test_nothing_active(self) -> None:
+        self.assertEqual(self.svc.best_recommendation(self.NOW), (None, []))
+        self.assertEqual(self.svc.closest_symbol(), "EURJPY")
+        self.svc.state.decisions["B1/XAUUSD"] = LatestDecision(self.NOW.isoformat(), "NONE", -0.4)
+        self.assertEqual(self.svc.closest_symbol(), "XAUUSD")
+
+    def test_quote_to_usd_uses_the_stored_closes(self) -> None:
+        store = self.svc.store
+        store.append("EURJPY", [(600, 160.0, 160.0, 160.0, 160.0)])
+        store.append("EURUSD", [(600, 1.1, 1.1, 1.1, 1.1)])
+        self.assertAlmostEqual(self.svc.quote_to_usd("AUDJPY"), 1.1 / 160.0)
+        self.assertEqual(self.svc.quote_to_usd("GBP/USD"), 1.0)
+        self.assertIsNone(self.svc.quote_to_usd("EURGBP"))
 
 
 class LifespanTests(unittest.TestCase):

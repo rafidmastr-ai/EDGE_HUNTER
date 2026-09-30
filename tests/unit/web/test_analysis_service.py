@@ -67,6 +67,89 @@ class AnalysisServiceTests(unittest.TestCase):
             self.assertEqual(with_edge[key], plain[key])
             self.assertEqual(broken[key], plain[key])
 
+    @staticmethod
+    def _recommendation(direction: str = "SELL") -> dict:
+        d = 1 if direction == "BUY" else -1
+        return {
+            "symbol": "XAUUSD", "model": "B1/XAUUSD", "variant": "B1", "variant_title_ar": "حتى الهدف/الوقف",
+            "exit_rule_ar": "اخرج عند الهدف أو الوقف، أو بعد 12 ساعة", "direction": direction, "entry": 2400.0,
+            "stop_loss": 2400.0 - d * 10.0, "take_profit": 2400.0 + d * 10.0, "risk_reward": 1.0, "atr_m15": 5.0,
+            "bar_close_utc": "2026-09-29T10:00:00+00:00", "age_minutes": 3.0, "forecast_r": -0.3 * d, "expected_r": 0.29,
+            "research_results": {"new_forward": {"trades": 110, "win_rate": 0.46, "avg_r": -0.06, "profit_factor": 0.88}},
+            "costs": {"spread": 0.1, "swap_per_night": 0.5},
+        }
+
+    def _stub(self, recommendation=None, ranked=None, closest="XAUUSD"):
+        rec = recommendation
+
+        class Stub:
+            def status(self, symbol):
+                return {"enabled": True, "experimental": True, "symbol": symbol, "models": []}
+
+            def recommendation(self, symbol):
+                return rec if rec and rec["symbol"] == symbol.replace("/", "") else None
+
+            def best_recommendation(self):
+                return rec, (ranked if ranked is not None else ([rec] if rec else []))
+
+            def closest_symbol(self):
+                return closest
+
+            def quote_to_usd(self, symbol):
+                return 1.0
+
+        return Stub()
+
+    def test_active_model_signal_becomes_the_main_result(self) -> None:
+        request = AnalyzeRequest(symbol="XAUUSD", risk_percent=1.0, capital=10_000, lot_mode="auto")
+        plain = LocalOHLCAnalysisService(self.root).analyze(request)
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(self._recommendation("SELL"))).analyze(request)
+        self.assertEqual(result["direction"], "SELL")
+        self.assertEqual((result["entry"], result["stop_loss"], result["target"]), (2400.0, 2410.0, 2390.0))
+        self.assertEqual(result["selected_strategy"], "EDGE ML B1")
+        self.assertEqual(result["metadata"]["recommendation_source"], "edge_ml")
+        self.assertEqual(result["metadata"]["classic_analysis"]["direction"], plain["direction"])
+        # 1 % of 10,000 = 100 USD at a 10 USD stop on 100 oz per lot -> 0.10 lot
+        self.assertEqual(result["lot_size"], 0.1)
+        self.assertEqual(result["capital_impact"]["stop_loss_loss"], 100.0)
+        self.assertEqual(result["chart"], plain["chart"])
+
+    def test_no_model_signal_keeps_the_classic_result(self) -> None:
+        request = AnalyzeRequest(symbol="XAUUSD", risk_percent=1.0, lot_mode="auto")
+        plain = LocalOHLCAnalysisService(self.root).analyze(request)
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(None)).analyze(request)
+        self.assertEqual(result["metadata"]["recommendation_source"], "classic")
+        for key in ("direction", "confidence", "entry", "target", "stop_loss", "selected_strategy", "reasons", "lot_size"):
+            self.assertEqual(result[key], plain[key])
+
+    def test_empty_symbol_picks_the_best_model_recommendation(self) -> None:
+        request = AnalyzeRequest(symbol="", risk_percent=1.0, lot_mode="auto")
+        self.assertIsNone(request.symbol)
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(self._recommendation("BUY"))).analyze(request)
+        self.assertEqual(result["symbol"], "XAUUSD")
+        self.assertEqual(result["direction"], "BUY")
+        self.assertEqual(result["metadata"]["recommendation_source"], "edge_ml_auto")
+        self.assertEqual(result["metadata"]["edge_ml_ranked"][0]["model"], "B1/XAUUSD")
+        self.assertIsNone(result["metadata"]["edge_ml"]["symbol"])  # card shows every model
+
+    def test_empty_symbol_without_any_signal_is_no_clear_signal(self) -> None:
+        request = AnalyzeRequest(symbol=None, risk_percent=1.0, lot_mode="auto")
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(None, closest="XAUUSD")).analyze(request)
+        self.assertEqual(result["symbol"], "XAUUSD")
+        self.assertEqual(result["direction"], "NO_CLEAR_SIGNAL")
+        self.assertEqual(result["status"], "no_clear_signal")
+        self.assertIsNone(result["entry"])
+        self.assertIn("لا توجد توصية نشطة", result["reasons"][0])
+        self.assertTrue(result["chart"])
+
+    def test_empty_symbol_needs_edge_ml(self) -> None:
+        with self.assertRaises(ValueError):
+            LocalOHLCAnalysisService(self.root).analyze(AnalyzeRequest(symbol=None))
+
+    def test_invalid_symbol_is_still_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            AnalyzeRequest(symbol="$$")
+
     def test_missing_symbol_is_data_unavailable(self) -> None:
         service = LocalOHLCAnalysisService(self.root)
         with self.assertRaises(DataUnavailableError):

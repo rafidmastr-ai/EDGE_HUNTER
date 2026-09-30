@@ -245,6 +245,35 @@ class Phase12FullSystemIntegrationTests(unittest.TestCase):
         self.assertEqual(body["paper_trades"], [])
         self.assertIn("oos", body["models"][0]["research_results"])
 
+    def test_empty_symbol_uses_the_best_live_model_recommendation(self) -> None:
+        from datetime import datetime, timezone
+
+        from app.ml_edge.live import LatestDecision
+
+        self._register()
+        edge = self.app.state.edge_ml
+        edge.ensure_loaded()
+        now = datetime.now(timezone.utc)
+        # nothing active: NO_CLEAR_SIGNAL on the symbol nearest to a signal
+        edge.state.decisions["B1/XAUUSD"] = LatestDecision(now.isoformat(), "NONE", -0.4)
+        response = self.client.post("/api/analyze", headers={"X-CSRF-Token": self.csrf},
+                                    json={"symbol": "", "risk_percent": 1.0, "lot_mode": "auto"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["direction"], "NO_CLEAR_SIGNAL")
+        self.assertEqual(response.json()["symbol"], "XAUUSD")
+        # an active fresh SELL from the gold model becomes the main recommendation
+        edge.state.decisions["B1/XAUUSD"] = LatestDecision(now.isoformat(), "SELL", -0.4, 5.0, 2400.0, 2410.0, 2390.0, True, 0.39)
+        response = self.client.post("/api/analyze", headers={"X-CSRF-Token": self.csrf},
+                                    json={"symbol": None, "risk_percent": 1.0, "lot_mode": "auto"})
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual((body["symbol"], body["direction"], body["entry"], body["stop_loss"]), ("XAUUSD", "SELL", 2400.0, 2410.0))
+        self.assertEqual(body["metadata"]["recommendation_source"], "edge_ml_auto")
+        # the same signal for an explicitly chosen symbol, in the UI's slash form
+        response = self.client.post("/api/analyze", headers={"X-CSRF-Token": self.csrf},
+                                    json={"symbol": "XAU/USD", "risk_percent": 1.0, "lot_mode": "auto"})
+        self.assertEqual(response.json()["metadata"]["recommendation_source"], "edge_ml")
+
     def test_anonymous_client_cannot_analyze_or_admin(self) -> None:
         anonymous = TestClient(self.app)
         analyze = anonymous.post(

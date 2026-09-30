@@ -82,7 +82,7 @@
             <span>الرمز</span>
             <div class="symbol-picker" id="symbol-picker">
               <div class="symbol-input-wrap">
-                <input id="symbol" type="text" value="XAU/USD" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ابحث: EUR أو XAU أو BTC..." aria-label="ابحث عن رمز السوق" aria-autocomplete="list" aria-controls="symbol-suggestions" aria-expanded="false">
+                <input id="symbol" type="text" value="XAU/USD" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="اتركه فارغاً لأفضل توصية من النماذج، أو ابحث: EUR أو XAU..." aria-label="ابحث عن رمز السوق" aria-autocomplete="list" aria-controls="symbol-suggestions" aria-expanded="false">
                 <button id="symbol-clear" class="symbol-clear hidden" type="button" aria-label="مسح الرمز">×</button>
               </div>
               <div class="symbol-filters" id="symbol-filters" role="tablist" aria-label="تصنيف الرموز">
@@ -149,6 +149,7 @@
             <div class="section-kicker">نتيجة التحليل</div>
             <h2 id="result-title">جاهز لتحليل السوق</h2>
             <p class="muted" id="result-subtitle">اضغط «تحليل السوق» للحصول على نتيجة فعلية من واجهة API.</p>
+            <p class="recommendation-source" id="recommendation-source" hidden></p>
           </div>
           <div class="analysis-time"><span>وقت التحليل</span><strong id="analysis-time">—</strong><small>UTC+3 بغداد</small></div>
         </div>
@@ -204,8 +205,8 @@
           </div>
         </div>
         <div class="edge-ml-card" id="edge-ml-card">
-          <div class="card-title">EDGE ML (تجريبي)</div>
-          <p class="edge-ml-warning" id="edge-ml-warning">إشارات بحثية للتداول الورقي فقط، لا تؤثر على الإشارة الرئيسية.</p>
+          <div class="card-title">EDGE ML — حالة النماذج</div>
+          <p class="edge-ml-warning" id="edge-ml-warning">توصيات من نماذج إحصائية — ليست ضماناً للربح؛ نفّذها يدوياً وبمخاطرة مناسبة.</p>
           <div class="comparison-table-wrap"><table><thead><tr><th>النموذج</th><th>آخر قرار</th><th>الدخول / الوقف / الهدف</th><th>نتائج البحث (متوسط R)</th><th>التداول الورقي</th></tr></thead><tbody id="edge-ml-body"><tr><td colspan="5">لا توجد نتيجة بعد.</td></tr></tbody></table></div>
         </div>
       </section>

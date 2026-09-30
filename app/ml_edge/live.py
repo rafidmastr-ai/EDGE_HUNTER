@@ -1,7 +1,10 @@
-"""Experimental live EDGE ML signals and paper trades (never changes the app's main signal).
+"""Live EDGE ML recommendations and paper trades.
+
+The latest fresh BUY/SELL decision of a model is served as a live recommendation
+(``recommendation`` / ``best_recommendation``); the user executes it manually.
 
 Every 15 minutes (after each M15 close) the scheduler:
-1. extends the local M1 store of the six symbols from the live provider;
+1. extends the local M1 store of every served symbol from the live provider;
 2. rebuilds the features and runs every enabled model (variant A: intraday, B1: hold
    up to 12 h) over the last ``history_days`` so its self-calibrating threshold is defined;
 3. records each new BUY/SELL decision as a paper trade and re-simulates all paper trades
@@ -28,16 +31,26 @@ from app.ml_edge.walkforward import execution_config
 from app.research.intraday import make_orders, simulate
 
 logger = logging.getLogger("edge_hunter.edge_ml")
-SYMBOLS = ("AUDUSD", "EURJPY", "EURUSD", "GBPUSD", "NZDUSD", "XAUUSD")
+# The six training symbols plus the yen crosses served by the EURJPY model (cross features use only the six).
+SYMBOLS = ("AUDUSD", "EURJPY", "EURUSD", "GBPUSD", "NZDUSD", "XAUUSD", "AUDJPY", "CADJPY")
 VARIANTS = {
-    "A": {"session_start_hour": 7, "title_ar": "داخل اليوم (خروج خلال 4 ساعات أو 20:45 UTC)"},
-    "B1": {"session_start_hour": 1, "title_ar": "حتى الهدف/الوقف، حد أقصى 12 ساعة، بدون عطلة نهاية الأسبوع"},
+    "A": {"session_start_hour": 7, "title_ar": "داخل اليوم (خروج خلال 4 ساعات أو 20:45 UTC)",
+          "exit_ar": "اخرج عند الهدف أو الوقف، أو بعد 4 ساعات، أو عند 20:45 UTC أيهما أسبق"},
+    "B1": {"session_start_hour": 1, "title_ar": "حتى الهدف/الوقف، حد أقصى 12 ساعة، بدون عطلة نهاية الأسبوع",
+           "exit_ar": "اخرج عند الهدف أو الوقف، أو بعد 12 ساعة، أو الجمعة 20:45 UTC أيهما أسبق"},
 }
 ACTIVITY_FEATURES = ("tick_volume_z", "spread_z")
 FRESH_SECONDS = 20 * 60
 RESIMULATE_SECONDS = 2 * 86400
 EXIT_REASONS = {1: "TP", -1: "SL", 2: "SL"}
-WARNING_AR = "تجريبي — إشارات بحثية للتداول الورقي فقط، لا تؤثر على الإشارة الرئيسية وليست توصية تداول."
+WARNING_AR = "توصيات من نماذج إحصائية مختبرة على بيانات سابقة — ليست ضماناً للربح؛ نفّذها يدوياً وبمخاطرة مناسبة."
+
+
+def normalize_symbol(symbol: str | None) -> str | None:
+    """``XAU/USD`` / ``xauusd`` -> ``XAUUSD`` (the UI and the provider use the slash form)."""
+    if not symbol:
+        return None
+    return str(symbol).strip().upper().replace("/", "").replace(" ", "")
 
 
 @dataclass
@@ -61,6 +74,7 @@ class LatestDecision:
     stop_loss: float | None = None
     take_profit: float | None = None
     fresh: bool = False
+    expected_r: float | None = None  # model forecast in the trade direction, minus the spread in R
 
 
 @dataclass
@@ -86,7 +100,7 @@ def _iso(seconds: int | float | None) -> str | None:
 
 class EdgeMLService:
     def __init__(self, models_dir: Path, store: M1Store, database=None, provider=None, *, history_days: int = 80,
-                 fetch_pause_seconds: float = 20.0, pause=time.sleep) -> None:
+                 fetch_pause_seconds: float = 20.0, pause=time.sleep, fresh_seconds: int = FRESH_SECONDS) -> None:
         self.models_dir = Path(models_dir)
         self.store = store
         self.database = database
@@ -94,6 +108,7 @@ class EdgeMLService:
         self.history_days = history_days
         self.fetch_pause_seconds = fetch_pause_seconds
         self.pause = pause
+        self.fresh_seconds = int(fresh_seconds)
         self.models: list[LoadedModel] = []
         self.load_errors: dict[str, str] = {}
         self.state = ServiceState()
@@ -191,7 +206,8 @@ class EdgeMLService:
             reference_price=price,
             stop_loss=price - d * dist if d else None,
             take_profit=price + d * dist if d else None,
-            fresh=bool(now_s - int(times[i]) <= FRESH_SECONDS),
+            fresh=bool(now_s - int(times[i]) <= self.fresh_seconds),
+            expected_r=round(float(d * forecast[i] - loaded.model.cost_price / dist), 4) if d else None,
         )
 
     # ------------------------------------------------------------------ paper trades
@@ -254,7 +270,7 @@ class EdgeMLService:
         args: tuple = ()
         if symbol:
             query += " WHERE symbol = ?"
-            args = (symbol.upper(),)
+            args = (normalize_symbol(symbol),)
         query += " ORDER BY signal_time DESC LIMIT ?"
         rows = self.database.execute(query, (*args, int(limit))).fetchall()
         out = []
@@ -279,20 +295,94 @@ class EdgeMLService:
                 "avg_r_net": round(float(r.mean()), 4), "total_r_net": round(float(r.sum()), 2)}
 
     # ------------------------------------------------------------------ status
-    def status(self, symbol: str | None = None) -> dict:
+    # ------------------------------------------------------------------ recommendations
+    def _active(self, now: datetime | None = None) -> list[dict]:
+        """Every model whose latest closed-bar decision is BUY/SELL and still fresh at ``now``."""
         self.ensure_loaded()
+        now_s = int((now or datetime.now(timezone.utc)).timestamp())
+        out = []
+        for loaded in self.models:
+            d = self.state.decisions.get(loaded.key)
+            if d is None or d.direction == "NONE" or d.bar_close_utc is None or d.stop_loss is None:
+                continue
+            bar_s = int(datetime.fromisoformat(d.bar_close_utc).timestamp())
+            if now_s - bar_s > self.fresh_seconds or bar_s > now_s:
+                continue
+            out.append({
+                "symbol": loaded.symbol,
+                "model": loaded.key,
+                "variant": loaded.variant,
+                "variant_title_ar": VARIANTS[loaded.variant]["title_ar"],
+                "exit_rule_ar": VARIANTS[loaded.variant]["exit_ar"],
+                "direction": d.direction,
+                "entry": d.reference_price,
+                "stop_loss": d.stop_loss,
+                "take_profit": d.take_profit,
+                "risk_reward": 1.0,
+                "atr_m15": d.atr,
+                "bar_close_utc": d.bar_close_utc,
+                "age_minutes": round((now_s - bar_s) / 60, 1),
+                "forecast_r": d.forecast_r,
+                "expected_r": d.expected_r,
+                "research_results": self.performance.get(loaded.key, {}),
+                "costs": {"spread": cost_price(loaded.symbol),
+                          "swap_per_night": swap_price(loaded.symbol) if loaded.model.label.hold else 0.0},
+            })
+        return sorted(out, key=lambda r: -(r["expected_r"] or 0.0))
+
+    def recommendation(self, symbol: str | None, now: datetime | None = None) -> dict | None:
+        """Best active recommendation for one symbol (highest expected R if A and B1 both signal)."""
+        symbol = normalize_symbol(symbol)
+        return next((r for r in self._active(now) if r["symbol"] == symbol), None)
+
+    def best_recommendation(self, now: datetime | None = None) -> tuple[dict | None, list[dict]]:
+        """(top active recommendation across all symbols, the full ranked list) - ranked by expected R."""
+        ranked = self._active(now)
+        return (ranked[0] if ranked else None), ranked
+
+    def quote_to_usd(self, symbol: str) -> float | None:
+        """USD value of one unit of the symbol's quote currency, from the latest stored closes."""
+        symbol = normalize_symbol(symbol) or ""
+        quote = symbol[-3:]
+        if quote == "USD":
+            return 1.0
+        if quote == "JPY":
+            try:
+                eurjpy = float(self.store.series("EURJPY").c[-1])
+                eurusd = float(self.store.series("EURUSD").c[-1])
+            except (IndexError, KeyError):
+                return None
+            return eurusd / eurjpy if eurjpy > 0 else None
+        return None
+
+    def closest_symbol(self) -> str:
+        """Symbol whose model is nearest to a signal (largest |forecast|), EURJPY when nothing is known."""
+        best, value = "EURJPY", -1.0
+        for loaded in self.models:
+            d = self.state.decisions.get(loaded.key)
+            if d is not None and d.forecast_r is not None and abs(d.forecast_r) > value:
+                best, value = loaded.symbol, abs(d.forecast_r)
+        return best
+
+    def status(self, symbol: str | None = None, now: datetime | None = None) -> dict:
+        self.ensure_loaded()
+        symbol = normalize_symbol(symbol)
         models = []
         for loaded in self.models:
-            if symbol and loaded.symbol != symbol.upper():
+            if symbol and loaded.symbol != symbol:
                 continue
             decision = self.state.decisions.get(loaded.key, LatestDecision())
+            latest = dict(decision.__dict__)
+            if decision.bar_close_utc:  # freshness at request time, not at refresh time
+                age = (now or datetime.now(timezone.utc)) - datetime.fromisoformat(decision.bar_close_utc)
+                latest["fresh"] = 0 <= age.total_seconds() <= self.fresh_seconds
             models.append({
                 "model": loaded.key,
                 "variant": loaded.variant,
                 "variant_title_ar": VARIANTS[loaded.variant]["title_ar"],
                 "symbol": loaded.symbol,
                 "architecture": loaded.model.architecture,
-                "latest": decision.__dict__,
+                "latest": latest,
                 "research_results": self.performance.get(loaded.key, {}),
                 "paper": self.paper_summary(loaded.key),
                 "costs": {"spread": cost_price(loaded.symbol),
@@ -301,6 +391,8 @@ class EdgeMLService:
         return {
             "enabled": True,
             "experimental": True,
+            "symbol": symbol,
+            "fresh_minutes": round(self.fresh_seconds / 60),
             "warning_ar": WARNING_AR,
             "models": models,
             "models_loaded": len(self.models),
@@ -340,4 +432,4 @@ class EdgeMLScheduler:
             self.service.refresh()
 
 
-__all__ = ["EdgeMLScheduler", "EdgeMLService", "LatestDecision", "SYMBOLS", "VARIANTS", "WARNING_AR", "market_open"]
+__all__ = ["EdgeMLScheduler", "EdgeMLService", "LatestDecision", "SYMBOLS", "VARIANTS", "WARNING_AR", "market_open", "normalize_symbol"]

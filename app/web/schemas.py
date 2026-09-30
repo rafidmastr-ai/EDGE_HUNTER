@@ -17,7 +17,8 @@ RISK_PRESETS = (0.25, 0.50, 1.00, 1.50, 2.00)
 class AnalyzeRequest(BaseModel):
     """User-controlled analysis inputs exposed by the web UI."""
 
-    symbol: str = Field(default="XAUUSD")
+    # None (field empty) = let the EDGE ML models pick the best available recommendation.
+    symbol: str | None = Field(default="XAUUSD")
     risk_percent: float = Field(default=1.0, gt=0.0, le=100.0)
     capital: float | None = Field(default=None, gt=0.0)
     lot_mode: str = Field(default="auto")
@@ -25,7 +26,9 @@ class AnalyzeRequest(BaseModel):
 
     @field_validator("symbol", mode="before")
     @classmethod
-    def normalize_symbol(cls, value: str) -> str:
+    def normalize_symbol(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
         normalized = str(value).strip().upper().replace(" ", "")
         compact = normalized.replace("/", "")
         if not SYMBOL_PATTERN.fullmatch(normalized) or not (4 <= len(compact) <= 32):

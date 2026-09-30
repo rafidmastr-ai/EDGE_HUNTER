@@ -106,6 +106,7 @@
     if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
 
     renderEdgeML(data.metadata?.edge_ml);
+    renderRecommendationSource(data);
 
     const impact = data.capital_impact;
     const impactCard = el('capital-impact');
@@ -122,7 +123,27 @@
     drawChart(window.__lastChart.candles, window.__lastChart.markers);
   }
 
-  // Experimental EDGE ML paper signals: separate from the main decision above.
+  // Where the main result came from: a live EDGE ML model or the classic strategies.
+  function renderRecommendationSource(data) {
+    const node = el('recommendation-source');
+    const source = data.metadata?.recommendation_source || 'classic';
+    const rec = data.metadata?.model_recommendation;
+    node.hidden = false;
+    if (rec) {
+      node.dataset.source = 'edge_ml';
+      const auto = source === 'edge_ml_auto' ? 'أفضل توصية متاحة — ' : '';
+      node.textContent = `مصدر التوصية: ${auto}نموذج EDGE ML ${rec.model} · ${rec.exit_rule_ar}`;
+      if (source === 'edge_ml_auto') el('symbol').value = data.symbol;
+    } else if (source === 'edge_ml_auto') {
+      node.dataset.source = 'none';
+      node.textContent = 'مصدر التوصية: نماذج EDGE ML — لا توجد توصية نشطة الآن.';
+    } else {
+      node.dataset.source = 'classic';
+      node.textContent = 'مصدر التوصية: التحليل الكلاسيكي (لا توجد إشارة نشطة من نماذج EDGE ML لهذا الرمز).';
+    }
+  }
+
+  // EDGE ML model status: latest decision of every model (all models when the symbol is auto).
   function renderEdgeML(edge) {
     const body = el('edge-ml-body');
     body.innerHTML = '';
@@ -133,11 +154,11 @@
       const latest = model.latest || {};
       const research = model.research_results || {};
       const paper = model.paper || {};
-      const decision = latest.direction === 'NONE' ? 'لا صفقة' : (directionText[latest.direction] || latest.direction);
+      const decision = !latest.bar_close_utc ? 'لم يُحدَّث بعد' : latest.direction === 'NONE' ? 'لا صفقة' : (directionText[latest.direction] || latest.direction);
       const when = latest.bar_close_utc ? new Date(latest.bar_close_utc).toLocaleString('ar-IQ', { hour12: false }) : '—';
       const cells = [
         `${model.model} — ${model.variant_title_ar || ''}`,
-        `${decision}${latest.fresh ? '' : ' (قديم)'} · ${when}`,
+        latest.bar_close_utc ? `${decision}${latest.fresh ? '' : ' (قديم)'} · ${when}` : decision,
         latest.stop_loss === null || latest.stop_loss === undefined ? '—' : `${formatPrice(latest.reference_price)} / ${formatPrice(latest.stop_loss)} / ${formatPrice(latest.take_profit)}`,
         `OOS ${fmtR(research.oos?.avg_r)} · 2025 ${fmtR(research.fwd_2025_jan_aug?.avg_r)} · جديد ${fmtR(research.new_forward?.avg_r)}`,
         paper.closed_trades ? `${paper.closed_trades} مغلقة · ${fmtR(paper.avg_r_net)} · مفتوحة ${paper.open_trades}` : `مفتوحة ${paper.open_trades || 0}`,
@@ -171,6 +192,7 @@
     el('comparison-body').innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
     el('capital-impact').hidden = true;
     el('edge-ml-body').innerHTML = '<tr><td colspan="5">لا توجد نتيجة بعد.</td></tr>';
+    el('recommendation-source').hidden = true;
     window.__lastChart = { candles: [], markers: {} };
     drawChart([], {});
   }
@@ -468,7 +490,8 @@
       const response = await authFetch('/api/analyze', {
         method: 'POST',
         body: JSON.stringify({
-          symbol: el('symbol').value,
+          // empty field = let the EDGE ML models pick the best available recommendation
+          symbol: el('symbol').value.trim() || null,
           risk_percent: riskValue(),
           capital: el('capital').value ? Number(el('capital').value) : null,
           lot_mode: el('lot-mode').value,

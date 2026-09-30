@@ -183,6 +183,8 @@ def create_web_app(
             M1Store(settings.edge_ml_store_dir, EDGE_ML_SYMBOLS, raw_dir=data_root or (PROJECT_ROOT / "data" / "raw")),
             database,
             live_provider,
+            # a decision stays actionable until the next scheduled refresh (+5 min margin)
+            fresh_seconds=max(20 * 60, settings.edge_ml_refresh_minutes * 60 + 5 * 60),
         )
         # Only a configured live provider feeds the store; the test environment and local mode never start the thread.
         if (settings.data_mode == "live" and settings.environment != "test"
@@ -451,7 +453,7 @@ def create_web_app(
             if observations and settings.data_mode == "live":
                 # Runs after the response is sent: storing setups for later outcome
                 # labelling never delays the recommendation shown to the user.
-                background_tasks.add_task(live_signal_recorder.record, payload.symbol, observations)
+                background_tasks.add_task(live_signal_recorder.record, result["symbol"], observations)
             return result
         except LiveDataUnavailableError as exc:
             raise HTTPException(
