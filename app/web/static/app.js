@@ -129,14 +129,17 @@
     const source = data.metadata?.recommendation_source || 'classic';
     const rec = data.metadata?.model_recommendation;
     node.hidden = false;
+    // The field is never rewritten: an empty field keeps meaning "best available recommendation".
     if (rec) {
-      node.dataset.source = 'edge_ml';
-      const auto = source === 'edge_ml_auto' ? 'أفضل توصية متاحة — ' : '';
-      node.textContent = `مصدر التوصية: ${auto}نموذج EDGE ML ${rec.model} · ${rec.exit_rule_ar}`;
-      if (source === 'edge_ml_auto') el('symbol').value = data.symbol;
+      const below = rec.tier === 'below_threshold';
+      node.dataset.source = below ? 'below' : 'edge_ml';
+      const auto = source === 'edge_ml_auto' ? `أفضل توصية متاحة (${data.symbol}) — ` : '';
+      const tier = below ? 'دون عتبة الدخول المختبرة، ثقة ضعيفة · ' : 'إشارة نموذج مؤكدة · ';
+      node.textContent = `مصدر التوصية: ${auto}نموذج EDGE ML ${rec.model} · ${tier}${rec.exit_rule_ar}`;
     } else if (source === 'edge_ml_auto') {
       node.dataset.source = 'none';
-      node.textContent = 'مصدر التوصية: نماذج EDGE ML — لا توجد توصية نشطة الآن.';
+      const problems = data.metadata?.edge_ml_readiness?.problems_ar || [];
+      node.textContent = `مصدر التوصية: نماذج EDGE ML — لا توجد توصية الآن.${problems.length ? ' ' + problems[0] : ''}`;
     } else {
       node.dataset.source = 'classic';
       node.textContent = 'مصدر التوصية: التحليل الكلاسيكي (لا توجد إشارة نشطة من نماذج EDGE ML لهذا الرمز).';
@@ -147,7 +150,10 @@
   function renderEdgeML(edge) {
     const body = el('edge-ml-body');
     body.innerHTML = '';
-    if (edge?.warning_ar) el('edge-ml-warning').textContent = edge.warning_ar;
+    if (edge?.warning_ar) {
+      const problems = edge.readiness?.problems_ar || [];
+      el('edge-ml-warning').textContent = problems.length ? `${problems.join(' · ')} — ${edge.warning_ar}` : edge.warning_ar;
+    }
     const models = edge?.enabled ? (edge.models || []) : [];
     const fmtR = (value) => (value === null || value === undefined ? '—' : `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(3)}R`);
     models.forEach((model) => {
@@ -446,17 +452,21 @@
     input.addEventListener('focus', () => searchSymbols(normalizeSymbolInput(input.value)));
     input.addEventListener('input', () => {
       el('symbol-clear').classList.toggle('hidden', !input.value);
+      if (!input.value.trim()) el('symbol-selected').textContent = 'فارغ = أفضل توصية متاحة من نماذج EDGE ML';
       scheduleSymbolSearch();
     });
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeSymbolSuggestions();
       if (event.key === 'Enter') {
+        // an empty field + Enter = analyse with the best model recommendation, not the first suggestion
+        if (!input.value.trim()) { event.preventDefault(); closeSymbolSuggestions(); analyze(); return; }
         const first = el('symbol-suggestions').querySelector('.symbol-suggestion');
         if (first) { event.preventDefault(); first.click(); }
       }
     });
     el('symbol-clear').addEventListener('click', () => {
       input.value = '';
+      el('symbol-selected').textContent = 'فارغ = أفضل توصية متاحة من نماذج EDGE ML';
       input.focus();
       searchSymbols('');
     });
@@ -505,7 +515,11 @@
         const liveDataError = code.startsWith('live_') || code.startsWith('provider_');
         const mapped = liveDataError ? 'data_unavailable' : ({ data_unavailable: 'data_unavailable', subscription_expired: 'subscription_expired', unauthorized: 'unauthorized', session_expired: 'session_expired' }[code] || 'api_error');
         clearResult(el('symbol').value);
-        setState(mapped, liveDataError ? `${states.data_unavailable.detail} (${code})` : (data?.detail?.message || null));
+        const rateLimited = code === 'provider_local_rate_limited' || code === 'provider_rate_limited' || code === 'provider_429';
+        const detail = rateLimited
+          ? 'تم بلوغ حد طلبات مزوّد البيانات (8 طلبات في الدقيقة في الخطة المجانية) — انتظر دقيقة ثم أعد المحاولة.'
+          : (liveDataError ? `${states.data_unavailable.detail} (${code})` : (data?.detail?.message || null));
+        setState(mapped, detail);
         if (code === 'session_expired' || code === 'unauthorized') await refreshMe();
         return;
       }

@@ -23,5 +23,6 @@ def build_live_provider(settings: Any) -> LiveMarketDataProvider:
             cache_ttl_seconds=settings.live_provider_cache_ttl_seconds,
             max_bars=settings.live_provider_max_bars,
             rate_limit_per_minute=settings.live_provider_rate_limit_per_minute,
+            rate_limit_wait_seconds=settings.live_provider_rate_limit_wait_seconds,
         )
     raise ValueError(f"unsupported live provider: {provider_name}")

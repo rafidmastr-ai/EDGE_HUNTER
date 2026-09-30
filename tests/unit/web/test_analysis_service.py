@@ -139,8 +139,23 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertEqual(result["direction"], "NO_CLEAR_SIGNAL")
         self.assertEqual(result["status"], "no_clear_signal")
         self.assertIsNone(result["entry"])
-        self.assertIn("لا توجد توصية نشطة", result["reasons"][0])
+        self.assertIn("لا توجد توصية", result["reasons"][0])
         self.assertTrue(result["chart"])
+
+    def test_below_threshold_pick_is_labelled_weak(self) -> None:
+        rec = {**self._recommendation("BUY"), "tier": "below_threshold"}
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(rec)).analyze(AnalyzeRequest(symbol=None))
+        self.assertEqual(result["direction"], "BUY")
+        self.assertEqual(result["confidence_label_ar"], "ضعيف")
+        self.assertLessEqual(result["confidence"], 25.0)
+        self.assertIn("دون عتبة الدخول المختبرة", result["reasons"][0])
+        self.assertEqual(result["metadata"]["recommendation_tier"], "below_threshold")
+
+    def test_no_recommendation_explains_why(self) -> None:
+        stub = self._stub(None)
+        stub.readiness = lambda: {"problems_ar": ["النماذج قيد التحميل والتحديث الأول"]}
+        result = LocalOHLCAnalysisService(self.root, edge_ml=stub).analyze(AnalyzeRequest(symbol=None))
+        self.assertIn("النماذج قيد التحميل والتحديث الأول", result["reasons"])
 
     def test_empty_symbol_needs_edge_ml(self) -> None:
         with self.assertRaises(ValueError):

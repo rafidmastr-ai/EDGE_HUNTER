@@ -59,6 +59,10 @@ class FrontendContractTests(unittest.TestCase):
         # an empty symbol field is sent as null -> the models pick the best recommendation
         self.assertIn("symbol: el('symbol').value.trim() || null", self.js)
         self.assertIn("renderRecommendationSource(data)", self.js)
+        # the field starts empty and is never rewritten, so every click can be "best recommendation"
+        self.assertIn('<input id="symbol" type="text" value=""', self.html)
+        self.assertNotIn("el('symbol').value = data.symbol", self.js)
+        self.assertIn("if (!input.value.trim()) { event.preventDefault(); closeSymbolSuggestions(); analyze(); return; }", self.js)
         self.assertIn("renderEdgeML(data.metadata?.edge_ml)", self.js)
         render = self.js.split("function renderEdgeML(edge)", 1)[1].split("function clearResult", 1)[0]
         # model values are written with textContent only, never as HTML

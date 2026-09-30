@@ -8,6 +8,7 @@ and caching outside the analysis/strategy layers.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
@@ -84,6 +85,7 @@ class TwelveDataLiveProvider:
         max_bars: int = DEFAULT_MAX_BARS,
         rate_limit_per_minute: int = 8,
         transport: Callable[..., bytes] | None = None,
+        rate_limit_wait_seconds: float = 0.0,
     ) -> None:
         # A key must be sendable in the Authorization header (printable ASCII,
         # no spaces). Placeholders such as "ضع المفتاح هنا" are treated as
@@ -100,6 +102,10 @@ class TwelveDataLiveProvider:
         self._transport = transport or self._default_transport
         self._cache: dict[tuple[str, str], tuple[float, tuple[OHLCBar, ...]]] = {}
         self._request_times: deque[float] = deque()
+        # wait this long for a free slot of the per-minute budget before refusing
+        # (the budget is shared by user analyses and the EDGE ML background refresh)
+        self._rate_limit_wait = max(0.0, float(rate_limit_wait_seconds))
+        self._rate_lock = threading.Lock()
         self._last_success_at: datetime | None = None
         self._last_failure_at: datetime | None = None
         self._last_latency_ms: float | None = None
@@ -134,13 +140,19 @@ class TwelveDataLiveProvider:
             last_error_code=self._last_error_code,
         )
 
+    # background history catch-up may ask for up to this many bars per request (same 1 credit)
+    bulk_max_bars = MAX_PROVIDER_POINTS
+
     def get_ohlc(
         self,
         symbol: str,
         timeframe: str,
         start: datetime,
         end: datetime,
+        max_bars: int | None = None,
     ) -> list[OHLCBar]:
+        """``max_bars`` overrides the configured page size (bulk history catch-up only)."""
+        limit = self._max_bars if max_bars is None else max(50, min(int(max_bars), MAX_PROVIDER_POINTS))
         if not self.configured:
             raise LiveProviderError(
                 "live market data provider is not configured",
@@ -179,7 +191,7 @@ class TwelveDataLiveProvider:
             "interval": TIMEFRAME_MAP[timeframe.upper()],
             "start_date": start_utc.strftime("%Y-%m-%d %H:%M:%S"),
             "end_date": end_utc.strftime("%Y-%m-%d %H:%M:%S"),
-            "outputsize": str(self._max_bars),
+            "outputsize": str(limit),
             "timezone": "UTC",
         }
         url = f"{self._base_url}/time_series?{urlencode(params)}"
@@ -193,7 +205,7 @@ class TwelveDataLiveProvider:
             },
         )
         payload = self._request_json(request)
-        bars = self._parse_payload(payload, start_utc, end_utc)
+        bars = self._parse_payload(payload, start_utc, end_utc, limit)
         if not bars:
             self._mark_failure("live_empty_data")
             raise LiveProviderError(
@@ -360,6 +372,7 @@ class TwelveDataLiveProvider:
         payload: Mapping[str, Any],
         start: datetime,
         end: datetime,
+        limit: int | None = None,
     ) -> list[OHLCBar]:
         values = payload.get("values")
         if not isinstance(values, list):
@@ -393,21 +406,28 @@ class TwelveDataLiveProvider:
             except (ValueError, InvalidOperation, TypeError):
                 continue
         ordered = [bars[key] for key in sorted(bars) if start <= key <= end]
-        return ordered[-self._max_bars :]
+        return ordered[-(limit or self._max_bars) :]
 
     def _enforce_local_rate_limit(self) -> None:
-        now = time.monotonic()
-        while self._request_times and now - self._request_times[0] >= 60.0:
-            self._request_times.popleft()
-        if len(self._request_times) >= self._rate_limit:
-            self._mark_failure("provider_local_rate_limited")
-            raise LiveProviderError(
-                "local provider rate limit reached; retry later",
-                code="provider_local_rate_limited",
-                status_code=429,
-                retryable=True,
-            )
-        self._request_times.append(now)
+        deadline = time.monotonic() + self._rate_limit_wait
+        while True:
+            with self._rate_lock:
+                now = time.monotonic()
+                while self._request_times and now - self._request_times[0] >= 60.0:
+                    self._request_times.popleft()
+                if len(self._request_times) < self._rate_limit:
+                    self._request_times.append(now)
+                    return
+                free_at = self._request_times[0] + 60.0
+            if free_at > deadline:
+                self._mark_failure("provider_local_rate_limited")
+                raise LiveProviderError(
+                    "local provider rate limit reached; retry later",
+                    code="provider_local_rate_limited",
+                    status_code=429,
+                    retryable=True,
+                )
+            time.sleep(max(0.05, free_at - time.monotonic()))
 
     def _mark_success(self) -> None:
         self._last_success_at = datetime.now(timezone.utc)

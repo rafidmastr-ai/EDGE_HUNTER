@@ -106,11 +106,49 @@ class StoreTests(unittest.TestCase):
         store = M1Store(self.dir, ("EURUSD",))
         last = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
         store.append("EURUSD", [(int(last.timestamp()), 1.0, 1.0, 1.0, 1.0)])
-        provider = FakeProvider({1: "live_empty_data", 2: "provider_local_rate_limited"})
+        provider = FakeProvider({1: "live_empty_data", 2: "provider_http_500"})
         added = fetch_updates(store, provider, "EURUSD", last + timedelta(minutes=2000), page_minutes=700, pause=lambda s: None)
         self.assertEqual(added, 0)
         self.assertEqual(len(provider.calls), 2)
         self.assertEqual(provider.calls[1][0], provider.calls[0][1] + timedelta(minutes=1))
+
+    def test_shared_rate_limit_waits_and_retries_instead_of_giving_up(self) -> None:
+        store = M1Store(self.dir, ("EURUSD",))
+        last = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
+        store.append("EURUSD", [(int(last.timestamp()), 1.0, 1.0, 1.0, 1.0)])
+        provider, pauses = FakeProvider({2: "provider_local_rate_limited", 3: "provider_local_rate_limited"}), []
+        added = fetch_updates(store, provider, "EURUSD", last + timedelta(minutes=1500), page_minutes=700, pause=pauses.append)
+        self.assertEqual(added, 1499)  # every page was eventually fetched
+        self.assertEqual(pauses.count(20.0), 2)  # two waits for the rate limit
+
+    def test_fetch_leaves_room_for_user_analyses(self) -> None:
+        import time as _time
+        from collections import deque
+
+        store = M1Store(self.dir, ("EURUSD",))
+        last = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
+        store.append("EURUSD", [(int(last.timestamp()), 1.0, 1.0, 1.0, 1.0)])
+        provider, pauses = FakeProvider(), []
+        provider._rate_limit = 8
+        provider._request_times = deque([_time.monotonic()] * 5)  # 5 recent requests: only 3 left
+
+        def pause(seconds):
+            pauses.append(seconds)
+            provider._request_times.clear()  # the minute passes
+
+        fetch_updates(store, provider, "EURUSD", last + timedelta(minutes=30), pause=pause)
+        self.assertEqual(pauses, [5.0])  # waited once before using the reserved slots
+
+    def test_twelve_data_no_data_answer_skips_the_window(self) -> None:
+        # a closed market (weekend) answers {"code": 400, "message": "No data is available ..."}
+        store = M1Store(self.dir, ("EURUSD",))
+        friday = datetime(2026, 1, 9, 20, 59, tzinfo=timezone.utc)
+        store.append("EURUSD", [(int(friday.timestamp()), 1.0, 1.0, 1.0, 1.0)])
+        provider = FakeProvider({1: "provider_400", 2: "provider_400", 3: "provider_400", 4: "provider_400"})
+        monday = datetime(2026, 1, 12, 9, 0, tzinfo=timezone.utc)
+        added = fetch_updates(store, provider, "EURUSD", monday, pause=lambda s: None, max_pages=60)
+        self.assertGreater(added, 0)  # the store moved past the weekend instead of stopping there
+        self.assertEqual(store.series("EURUSD").last_time, int((monday - timedelta(minutes=1)).timestamp()))
 
     def test_market_hours(self) -> None:
         self.assertFalse(market_open(datetime(2026, 1, 10, 12, tzinfo=timezone.utc)))  # Saturday
@@ -248,6 +286,30 @@ class RecommendationTests(unittest.TestCase):
         self.assertEqual(best["risk_reward"], 1.0)
         self.assertIn("12 ساعة", best["exit_rule_ar"])
         self.assertIn("new_forward", best["research_results"])
+
+    def test_without_active_signal_the_strongest_fresh_candidate_is_offered(self) -> None:
+        bar = (self.NOW - timedelta(minutes=5)).isoformat()
+        self.svc.state.decisions["B1/EURJPY"] = LatestDecision(bar, "NONE", -0.30, 0.1, 150.0, None, None, True, None,
+                                                               "SELL", 150.2, 149.8, 0.29)
+        self.svc.state.decisions["A/GBPUSD"] = LatestDecision(bar, "NONE", 0.10, 0.001, 1.3, None, None, True, None,
+                                                              "BUY", 1.298, 1.302, 0.09)
+        best, ranked = self.svc.best_recommendation(self.NOW)
+        self.assertEqual((best["model"], best["tier"], best["direction"]), ("B1/EURJPY", "below_threshold", "SELL"))
+        self.assertEqual((best["stop_loss"], best["take_profit"]), (150.2, 149.8))
+        self.assertIsNone(self.svc.recommendation("EURJPY", self.NOW))  # a chosen symbol needs a real signal
+        # an active signal always ranks above any candidate
+        self.decide("A/NZDUSD", "BUY", 0.05)
+        best, _ = self.svc.best_recommendation(self.NOW)
+        self.assertEqual((best["model"], best["tier"]), ("A/NZDUSD", "active"))
+
+    def test_readiness_explains_missing_history_and_warm_up(self) -> None:
+        r = self.svc.readiness(self.NOW)
+        self.assertFalse(r["ready"])
+        self.assertTrue(any("مزوّد البيانات الحية غير مفعّل" in p for p in r["problems_ar"]))
+        self.svc.state.store_coverage = {"AUDJPY": {"days": 4.0}, "EURJPY": {"days": 150.0}}
+        self.assertTrue(any("AUDJPY" in p and "data/raw" in p for p in self.svc.readiness(self.NOW)["problems_ar"]))
+        weekend = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
+        self.assertTrue(any("السوق مغلق" in p for p in self.svc.readiness(weekend)["problems_ar"]))
 
     def test_symbol_recommendation_accepts_the_ui_slash_form(self) -> None:
         self.decide("B1/XAUUSD", "SELL", 0.1)

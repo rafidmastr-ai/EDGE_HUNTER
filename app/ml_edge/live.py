@@ -42,6 +42,8 @@ VARIANTS = {
 ACTIVITY_FEATURES = ("tick_volume_z", "spread_z")
 FRESH_SECONDS = 20 * 60
 RESIMULATE_SECONDS = 2 * 86400
+RETRY_SECONDS = 60
+MIN_HISTORY_DAYS = 85  # 60-day feature windows + the threshold's 20-day warm-up
 EXIT_REASONS = {1: "TP", -1: "SL", 2: "SL"}
 WARNING_AR = "توصيات من نماذج إحصائية مختبرة على بيانات سابقة — ليست ضماناً للربح؛ نفّذها يدوياً وبمخاطرة مناسبة."
 
@@ -75,6 +77,11 @@ class LatestDecision:
     take_profit: float | None = None
     fresh: bool = False
     expected_r: float | None = None  # model forecast in the trade direction, minus the spread in R
+    # the model's own leaning even when it is below its tested entry threshold (direction NONE)
+    candidate_direction: str | None = None
+    candidate_stop_loss: float | None = None
+    candidate_take_profit: float | None = None
+    candidate_expected_r: float | None = None
 
 
 @dataclass
@@ -83,6 +90,9 @@ class ServiceState:
     last_error: str | None = None
     store_last_bar_utc: dict[str, str | None] = field(default_factory=dict)
     decisions: dict[str, LatestDecision] = field(default_factory=dict)
+    refreshing: bool = False
+    evaluated_utc: str | None = None  # last successful evaluation
+    store_coverage: dict[str, dict] = field(default_factory=dict)
 
 
 def market_open(now: datetime) -> bool:
@@ -100,7 +110,7 @@ def _iso(seconds: int | float | None) -> str | None:
 
 class EdgeMLService:
     def __init__(self, models_dir: Path, store: M1Store, database=None, provider=None, *, history_days: int = 80,
-                 fetch_pause_seconds: float = 20.0, pause=time.sleep, fresh_seconds: int = FRESH_SECONDS) -> None:
+                 fetch_pause_seconds: float = 12.0, pause=time.sleep, fresh_seconds: int = FRESH_SECONDS) -> None:
         self.models_dir = Path(models_dir)
         self.store = store
         self.database = database
@@ -147,21 +157,35 @@ class EdgeMLService:
     def refresh(self, now: datetime | None = None, *, fetch: bool = True) -> None:
         if not self._refresh_lock.acquire(blocking=False):
             return
+        self.state.refreshing = True
         try:
+            live_clock = now is None  # tests pass a fixed ``now``; the scheduler uses the wall clock
             now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
             if fetch and self.provider is not None and market_open(now):
-                for k, symbol in enumerate(SYMBOLS):
-                    if k:  # keep the shared provider rate limit free for user analyses
-                        self.pause(self.fetch_pause_seconds)
-                    fetch_updates(self.store, self.provider, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
+                self._fetch_all(now)
+                if live_clock and (datetime.now(timezone.utc) - now).total_seconds() > 60:
+                    # a long catch-up (first start): top up the minutes that passed meanwhile, then
+                    # evaluate at the current time so the newest decisions are fresh, not already stale
+                    now = datetime.now(timezone.utc)
+                    self._fetch_all(now)
+            if live_clock:
+                now = datetime.now(timezone.utc)
             self._evaluate(now)
             self.state.last_error = None
+            self.state.evaluated_utc = datetime.now(timezone.utc).isoformat()
         except Exception as exc:  # the scheduler must survive any single failure
             logger.exception("edge_ml refresh failed")
-            self.state.last_error = type(exc).__name__
+            self.state.last_error = f"{type(exc).__name__}: {exc}"[:200]
         finally:
+            self.state.refreshing = False
             self.state.last_refresh_utc = datetime.now(timezone.utc).isoformat()
             self._refresh_lock.release()
+
+    def _fetch_all(self, now: datetime) -> None:
+        for k, symbol in enumerate(SYMBOLS):
+            if k:  # keep the shared provider rate limit free for user analyses
+                self.pause(self.fetch_pause_seconds)
+            fetch_updates(self.store, self.provider, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
 
     def _evaluate(self, now: datetime) -> None:
         self.ensure_loaded()
@@ -170,8 +194,15 @@ class EdgeMLService:
         now_s = int(now.timestamp())
         data = {s: self.store.series(s).to_symbol_data(s) for s in SYMBOLS}
         self.state.store_last_bar_utc = {s: _iso(d.m1.open_time[-1]) if len(d.m1) else None for s, d in data.items()}
-        if any(len(d.m1) == 0 for d in data.values()):
-            raise RuntimeError("edge_ml store is empty for at least one symbol")
+        self.state.store_coverage = {
+            s: {"first_bar_utc": _iso(d.m1.open_time[0]) if len(d.m1) else None,
+                "last_bar_utc": _iso(d.m1.open_time[-1]) if len(d.m1) else None,
+                "days": round(float(d.m1.open_time[-1] - d.m1.open_time[0]) / 86400, 1) if len(d.m1) else 0.0}
+            for s, d in data.items()
+        }
+        empty = [s for s, d in data.items() if len(d.m1) == 0]
+        if empty:
+            raise RuntimeError(f"no M1 history for {', '.join(empty)}")
         if self._paper_start is None:
             self._paper_start = self._load_paper_start(now_s)
         for variant, cfg in VARIANTS.items():
@@ -198,6 +229,7 @@ class EdgeMLService:
         d = int(direction[i])
         price = float(symbol_data.m1.close[np.searchsorted(symbol_data.m1.open_time, times[i], "left") - 1])
         dist = loaded.model.label.barrier_atr * float(atr[i])
+        lean = 1 if forecast[i] >= 0 else -1
         self.state.decisions[loaded.key] = LatestDecision(
             bar_close_utc=_iso(times[i]),
             direction={1: "BUY", -1: "SELL"}.get(d, "NONE"),
@@ -208,6 +240,10 @@ class EdgeMLService:
             take_profit=price + d * dist if d else None,
             fresh=bool(now_s - int(times[i]) <= self.fresh_seconds),
             expected_r=round(float(d * forecast[i] - loaded.model.cost_price / dist), 4) if d else None,
+            candidate_direction="BUY" if lean > 0 else "SELL",
+            candidate_stop_loss=price - lean * dist,
+            candidate_take_profit=price + lean * dist,
+            candidate_expected_r=round(float(abs(forecast[i]) - loaded.model.cost_price / dist), 4),
         )
 
     # ------------------------------------------------------------------ paper trades
@@ -296,17 +332,25 @@ class EdgeMLService:
 
     # ------------------------------------------------------------------ status
     # ------------------------------------------------------------------ recommendations
-    def _active(self, now: datetime | None = None) -> list[dict]:
-        """Every model whose latest closed-bar decision is BUY/SELL and still fresh at ``now``."""
+    def _ranked(self, now: datetime | None = None, *, include_candidates: bool = False) -> list[dict]:
+        """Fresh model decisions at ``now``: tier "active" (passed the tested entry threshold) first,
+        then - if asked - tier "below_threshold" (the model's leaning, not validated), each by expected R."""
         self.ensure_loaded()
         now_s = int((now or datetime.now(timezone.utc)).timestamp())
         out = []
         for loaded in self.models:
             d = self.state.decisions.get(loaded.key)
-            if d is None or d.direction == "NONE" or d.bar_close_utc is None or d.stop_loss is None:
+            if d is None or d.bar_close_utc is None or d.reference_price is None:
                 continue
             bar_s = int(datetime.fromisoformat(d.bar_close_utc).timestamp())
             if now_s - bar_s > self.fresh_seconds or bar_s > now_s:
+                continue
+            if d.direction != "NONE" and d.stop_loss is not None:
+                tier, direction, stop, take, expected = "active", d.direction, d.stop_loss, d.take_profit, d.expected_r
+            elif include_candidates and d.candidate_direction and (d.candidate_expected_r or 0) > 0:
+                tier, direction, stop, take, expected = ("below_threshold", d.candidate_direction, d.candidate_stop_loss,
+                                                         d.candidate_take_profit, d.candidate_expected_r)
+            else:
                 continue
             out.append({
                 "symbol": loaded.symbol,
@@ -314,31 +358,67 @@ class EdgeMLService:
                 "variant": loaded.variant,
                 "variant_title_ar": VARIANTS[loaded.variant]["title_ar"],
                 "exit_rule_ar": VARIANTS[loaded.variant]["exit_ar"],
-                "direction": d.direction,
+                "tier": tier,
+                "direction": direction,
                 "entry": d.reference_price,
-                "stop_loss": d.stop_loss,
-                "take_profit": d.take_profit,
+                "stop_loss": stop,
+                "take_profit": take,
                 "risk_reward": 1.0,
                 "atr_m15": d.atr,
                 "bar_close_utc": d.bar_close_utc,
                 "age_minutes": round((now_s - bar_s) / 60, 1),
                 "forecast_r": d.forecast_r,
-                "expected_r": d.expected_r,
+                "expected_r": expected,
                 "research_results": self.performance.get(loaded.key, {}),
                 "costs": {"spread": cost_price(loaded.symbol),
                           "swap_per_night": swap_price(loaded.symbol) if loaded.model.label.hold else 0.0},
             })
-        return sorted(out, key=lambda r: -(r["expected_r"] or 0.0))
+        return sorted(out, key=lambda r: (r["tier"] != "active", -(r["expected_r"] or 0.0)))
 
     def recommendation(self, symbol: str | None, now: datetime | None = None) -> dict | None:
-        """Best active recommendation for one symbol (highest expected R if A and B1 both signal)."""
+        """Best ACTIVE recommendation for one symbol (highest expected R if A and B1 both signal)."""
         symbol = normalize_symbol(symbol)
-        return next((r for r in self._active(now) if r["symbol"] == symbol), None)
+        return next((r for r in self._ranked(now) if r["symbol"] == symbol), None)
 
     def best_recommendation(self, now: datetime | None = None) -> tuple[dict | None, list[dict]]:
-        """(top active recommendation across all symbols, the full ranked list) - ranked by expected R."""
-        ranked = self._active(now)
+        """(best recommendation across all models, the full ranked list).
+
+        Active signals come first; when none is active the strongest fresh below-threshold
+        candidate is returned (tier "below_threshold"), so a fresh model state always yields one.
+        """
+        ranked = self._ranked(now, include_candidates=True)
         return (ranked[0] if ranked else None), ranked
+
+    def readiness(self, now: datetime | None = None) -> dict:
+        """Why there may be no recommendation, in plain Arabic (for the UI and /api/edge-ml)."""
+        self.ensure_loaded()
+        now = now or datetime.now(timezone.utc)
+        now_s = int(now.timestamp())
+        problems = []
+        if not self.models:
+            problems.append("لم يُحمَّل أي نموذج من models/edge_ml — تأكد من نسخ مجلد models من GitHub.")
+        if self.state.evaluated_utc is None:
+            if self.provider is None or not getattr(self.provider, "configured", False):
+                problems.append("مزوّد البيانات الحية غير مفعّل، فلا تُحدَّث النماذج (شغّل التطبيق بوضع live مع مفتاح Twelve Data).")
+            elif self.state.refreshing or self.state.last_refresh_utc is None:
+                problems.append("النماذج قيد التحميل والتحديث الأول (تحميل التاريخ ثم جلب آخر البيانات) — قد يستغرق عدة دقائق.")
+        if self.state.last_error:
+            problems.append(f"آخر تحديث للنماذج فشل: {self.state.last_error}")
+        short = [s for s, c in self.state.store_coverage.items() if c.get("days", 0) < MIN_HISTORY_DAYS]
+        if short:
+            problems.append(f"تاريخ غير كافٍ ({', '.join(short)}): النماذج تحتاج {MIN_HISTORY_DAYS} يوماً على الأقل من بيانات M1 — "
+                            "انسخ ملفات data/raw/<الرمز>/*.csv من GitHub ثم أعد تشغيل التطبيق.")
+        if market_open(now) and self.state.store_last_bar_utc:
+            lagging = [s for s, t in self.state.store_last_bar_utc.items()
+                       if t and now_s - int(datetime.fromisoformat(t).timestamp()) > 3 * 3600]
+            if lagging:
+                problems.append(f"البيانات الحية متأخرة لـ {', '.join(lagging)} (تحقق من مفتاح Twelve Data وحدود الطلبات).")
+        if not market_open(now):
+            problems.append("السوق مغلق الآن (عطلة نهاية الأسبوع) — لا توجد توصيات حتى افتتاح السوق.")
+        fresh = [k for k, d in self.state.decisions.items() if d.bar_close_utc
+                 and now_s - int(datetime.fromisoformat(d.bar_close_utc).timestamp()) <= self.fresh_seconds]
+        return {"ready": bool(fresh), "fresh_models": len(fresh), "refreshing": self.state.refreshing,
+                "evaluated_utc": self.state.evaluated_utc, "problems_ar": problems}
 
     def quote_to_usd(self, symbol: str) -> float | None:
         """USD value of one unit of the symbol's quote currency, from the latest stored closes."""
@@ -400,6 +480,8 @@ class EdgeMLService:
             "last_refresh_utc": self.state.last_refresh_utc,
             "last_error": self.state.last_error,
             "store_last_bar_utc": self.state.store_last_bar_utc,
+            "store_coverage": self.state.store_coverage,
+            "readiness": self.readiness(now),
         }
 
 
@@ -427,6 +509,8 @@ class EdgeMLScheduler:
         while not self._stop.is_set():
             now = time.time()
             next_run = (int(now) // self.interval_seconds + 1) * self.interval_seconds + self.offset_seconds
+            if self.service.state.evaluated_utc is None or self.service.state.last_error:
+                next_run = min(next_run, now + RETRY_SECONDS)  # not ready yet: retry soon
             if self._stop.wait(max(1.0, next_run - now)):
                 break
             self.service.refresh()

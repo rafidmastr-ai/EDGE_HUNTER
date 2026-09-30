@@ -147,12 +147,17 @@ class LocalOHLCAnalysisService:
         win_rate = forward.get("win_rate")
         confidence = round(100.0 * win_rate, 1) if win_rate is not None else 50.0
         label = "قوي" if confidence >= 65 else "متوسط" if confidence >= 55 else "ضعيف"
+        below = rec.get("tier") == "below_threshold"
+        if below:  # the model's leaning only: its quality was never validated
+            confidence, label = round(min(confidence, 50.0) / 2, 1), "ضعيف"
         entry, stop, target = rec["entry"], rec["stop_loss"], rec["take_profit"]
         lot_size, impact = self._model_lot_and_impact(request, entry, stop, target)
         bar_utc = datetime.fromisoformat(rec["bar_close_utc"])
         bar_baghdad = bar_utc.astimezone(timezone(timedelta(hours=3)))
         reasons = [
-            f"توصية نموذج EDGE ML ({rec['model']}) — {rec['variant_title_ar']}.",
+            (f"أفضل توصية متاحة الآن — دون عتبة الدخول المختبرة لنموذج EDGE ML ({rec['model']}): "
+             "لا يوجد أي نموذج تجاوز عتبته الآن، فهذا أقوى ميل بين النماذج وجودته غير مثبتة في الاختبارات.")
+            if below else f"توصية نموذج EDGE ML ({rec['model']}) — {rec['variant_title_ar']}.",
             f"القرار عند إغلاق شمعة M15 الساعة {bar_utc:%H:%M} UTC ({bar_baghdad:%H:%M} بتوقيت بغداد)، قبل {rec['age_minutes']:.0f} دقيقة.",
             f"العائد المتوقع للنموذج: {rec['expected_r']:+.2f}R بعد السبريد (نسبة الهدف إلى الوقف 1:1، الوقف والهدف = 2 × ATR على M15).",
             f"الخروج: {rec['exit_rule_ar']}.",
@@ -180,10 +185,17 @@ class LocalOHLCAnalysisService:
             "reasons": reasons,
         })
         result["metadata"]["recommendation_source"] = "edge_ml_auto" if auto else "edge_ml"
+        result["metadata"]["recommendation_tier"] = rec.get("tier", "active")
         result["metadata"]["model_recommendation"] = rec
         result["metadata"]["classic_analysis"] = classic
 
     def _apply_no_recommendation(self, result: dict) -> None:
+        try:
+            readiness = self.edge_ml.readiness()
+        except Exception:
+            readiness = {"problems_ar": []}
+        problems = readiness.get("problems_ar") or [
+            "لا توجد قرارات حديثة من النماذج؛ تُحدَّث بعد إغلاق كل شمعة M15 — أعد المحاولة بعد دقائق."]
         classic = {key: result.get(key) for key in ("direction", "confidence", "selected_strategy", "entry", "target", "stop_loss")}
         result.update({
             "status": "no_clear_signal",
@@ -198,11 +210,12 @@ class LocalOHLCAnalysisService:
             "risk_reward": None,
             "capital_impact": None,
             "reasons": [
-                "لا توجد توصية نشطة من نماذج EDGE ML الآن على أي زوج.",
-                "النماذج تُحدَّث بعد إغلاق كل شمعة M15 (كل 15 دقيقة)؛ أعد المحاولة لاحقاً أو اختر رمزاً محدداً.",
-                f"الرسم يعرض {result['symbol']}، أقرب زوج إلى إعطاء إشارة.",
+                "لا توجد توصية من نماذج EDGE ML الآن.",
+                *problems,
+                f"الرسم يعرض {result['symbol']}.",
             ],
         })
+        result["metadata"]["edge_ml_readiness"] = readiness
         result["metadata"]["recommendation_source"] = "edge_ml_auto"
         result["metadata"]["classic_analysis"] = classic
 

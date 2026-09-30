@@ -152,6 +152,7 @@ select:focus, input:focus { border-color: rgba(37,150,255,.65); box-shadow: 0 0 
 .recommendation-source { margin:6px 0 0; font-size:13px; font-weight:600; }
 .recommendation-source[data-source="edge_ml"] { color:#5fd3a2; }
 .recommendation-source[data-source="classic"] { opacity:.8; }
+.recommendation-source[data-source="below"], .recommendation-source[data-source="none"] { color:#f0b44c; }
 .card-title { font-weight:800; font-size:13px; margin-bottom:10px; }
 .reason-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
 .reason-list li { display:flex; gap:8px; color:#bcc8d8; font-size:11px; line-height:1.5; }

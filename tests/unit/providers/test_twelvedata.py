@@ -135,6 +135,32 @@ class TwelveDataProviderTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "provider_local_rate_limited")
         self.assertEqual(transport.calls, 1)
 
+    def test_bulk_history_request_uses_a_larger_page_only_when_asked(self):
+        transport = FakeTransport(sample_payload())
+        provider = TwelveDataLiveProvider(api_key="secret", transport=transport, max_bars=800, cache_ttl_seconds=0)
+        start = datetime(2026, 9, 24, 12, 0, tzinfo=timezone.utc)
+        provider.get_ohlc("EURUSD", "M1", start, start + timedelta(minutes=4))
+        provider.get_ohlc("EURUSD", "M1", start, start + timedelta(minutes=4), max_bars=provider.bulk_max_bars)
+        self.assertIn("outputsize=800", transport.requests[0][0].full_url)
+        self.assertIn("outputsize=5000", transport.requests[1][0].full_url)
+
+    def test_local_rate_limit_waits_for_a_slot_that_frees_soon(self):
+        import time as _time
+
+        transport = FakeTransport(sample_payload())
+        provider = TwelveDataLiveProvider(api_key="secret", transport=transport, rate_limit_per_minute=1,
+                                          cache_ttl_seconds=0, rate_limit_wait_seconds=5)
+        provider._request_times.append(_time.monotonic() - 59.8)  # frees in 0.2 s
+        start = datetime(2026, 9, 24, 12, 0, tzinfo=timezone.utc)
+        began = _time.monotonic()
+        provider.get_ohlc("EURUSD", "M1", start, start + timedelta(minutes=4))
+        self.assertGreaterEqual(_time.monotonic() - began, 0.15)
+        self.assertEqual(transport.calls, 1)
+        # a slot that frees only after the allowed wait is still refused at once
+        with self.assertRaises(LiveProviderError) as raised:
+            provider.get_ohlc("EURUSD", "M5", start, start + timedelta(minutes=20))
+        self.assertEqual(raised.exception.code, "provider_local_rate_limited")
+
     def test_provider_failure_updates_health_without_leaking_details(self):
         transport = FakeTransport({"status": "error", "code": 401, "message": "bad key"})
         provider = TwelveDataLiveProvider(api_key="secret", transport=transport, max_retries=0)

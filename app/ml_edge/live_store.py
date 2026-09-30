@@ -22,6 +22,11 @@ from app.research.intraday import DAY, Bars
 
 logger = logging.getLogger("edge_hunter.edge_ml")
 KEEP_DAYS = 150
+EMPTY_WINDOW_CODES = frozenset({"live_empty_data", "provider_400"})
+RATE_LIMIT_CODES = frozenset({"provider_local_rate_limited", "provider_rate_limited", "provider_429"})
+RATE_LIMIT_RETRIES = 4
+RATE_LIMIT_WAIT_SECONDS = 20.0
+RESERVED_REQUESTS = 3  # one user analysis = 3 provider requests (M5, M15, H1)
 
 
 @dataclass
@@ -71,7 +76,7 @@ class M1Store:
             z = np.load(path)
             return StoredSeries(z["t"], z["o"], z["h"], z["l"], z["c"], z["v"], z["s"])
         if self.raw_dir is not None and (self.raw_dir / symbol / "SOURCE.json").exists():
-            data = load_symbol(self.raw_dir / symbol)
+            data = load_symbol(self.raw_dir / symbol, self.directory / "seed_cache")
             m = data.m1
             keep = m.open_time >= m.open_time[-1] - self.keep_days * DAY
             series = StoredSeries(m.open_time[keep], m.open[keep], m.high[keep], m.low[keep], m.close[keep],
@@ -116,16 +121,31 @@ class M1Store:
         return len(fresh)
 
 
+def _wait_for_budget(provider, pause: Callable[[float], None], reserve: int = RESERVED_REQUESTS, max_wait: float = 60.0) -> None:
+    """Leave ``reserve`` requests of the provider's per-minute budget free for user analyses."""
+    times, limit = getattr(provider, "_request_times", None), getattr(provider, "_rate_limit", None)
+    if times is None or not isinstance(limit, int):
+        return
+    waited = 0.0
+    while waited < max_wait:
+        now = time.monotonic()
+        recent = sum(1 for t in list(times) if now - t < 60.0)
+        if recent <= max(0, limit - reserve - 1):
+            return
+        pause(5.0)
+        waited += 5.0
+
+
 def fetch_updates(
     store: M1Store,
     provider,
     symbol: str,
     now: datetime,
     *,
-    page_minutes: int = 700,
+    page_minutes: int | None = None,
     max_pages: int = 30,
     pause: Callable[[float], None] = time.sleep,
-    pause_seconds: float = 20.0,
+    pause_seconds: float = 12.0,
 ) -> int:
     """Fetch closed minute bars after the last stored bar, one page (< provider max bars) at a time.
 
@@ -135,6 +155,10 @@ def fetch_updates(
     from app.providers.models import LiveProviderError
 
     added = 0
+    bulk = getattr(provider, "bulk_max_bars", None)
+    if page_minutes is None:  # one page = the most bars the provider returns per request, minus a margin
+        page_minutes = max(60, int(bulk or getattr(provider, "_max_bars", 800)) - 50)
+    extra = {"max_bars": int(bulk)} if bulk else {}
     now = now.astimezone(timezone.utc).replace(second=0, microsecond=0)
     last = store.series(symbol).last_time
     start = datetime.fromtimestamp(last + 60, tz=timezone.utc) if last is not None else now - timedelta(days=5)
@@ -147,9 +171,21 @@ def fetch_updates(
         if page:
             pause(pause_seconds)
         try:
-            bars = provider.get_ohlc(symbol, "M1", start, end)
+            bars = None
+            for attempt in range(RATE_LIMIT_RETRIES + 1):
+                try:
+                    _wait_for_budget(provider, pause)
+                    bars = provider.get_ohlc(symbol, "M1", start, end, **extra)
+                    break
+                except LiveProviderError as exc:
+                    # the provider's per-minute budget is shared with user analyses: wait, do not give up
+                    if exc.code not in RATE_LIMIT_CODES or attempt == RATE_LIMIT_RETRIES:
+                        raise
+                    pause(RATE_LIMIT_WAIT_SECONDS)
         except LiveProviderError as exc:
-            if exc.code == "live_empty_data":  # market closed in this window
+            # market closed in this window (weekend / holiday): Twelve Data answers
+            # {"code": 400, "message": "No data is available on the specified dates"}
+            if exc.code in EMPTY_WINDOW_CODES:
                 start = end + timedelta(minutes=1)
                 continue
             logger.warning("edge_ml fetch %s stopped: %s", symbol, exc.code)
@@ -161,4 +197,4 @@ def fetch_updates(
     return added
 
 
-__all__ = ["M1Store", "StoredSeries", "fetch_updates"]
+__all__ = ["EMPTY_WINDOW_CODES", "M1Store", "StoredSeries", "fetch_updates"]

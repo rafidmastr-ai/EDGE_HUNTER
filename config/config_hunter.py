@@ -121,6 +121,8 @@ class Settings:
     cost_gate_max_cost_r: float = 0.10
     # Experimental EDGE ML signals (paper only, never part of the main signal).
     # See models/edge_ml/README.md and docs/results/EDGE_ML_LIVE_CHECK.md.
+    # seconds to wait for a free slot of the per-minute provider budget before refusing
+    live_provider_rate_limit_wait_seconds: float = 15.0
     edge_ml_enabled: bool = True
     edge_ml_models_dir: Path = PROJECT_ROOT / "models" / "edge_ml"
     edge_ml_store_dir: Path = PROJECT_ROOT / "data" / "processed" / "edge_ml_live"
@@ -186,6 +188,7 @@ def load_settings() -> Settings:
         live_provider_cache_ttl_seconds=_env_float("EDGE_HUNTER_LIVE_PROVIDER_CACHE_TTL_SECONDS", 15.0, 0.0, 300.0),
         live_provider_max_bars=_env_int("EDGE_HUNTER_LIVE_PROVIDER_MAX_BARS", 800, 50, 5000),
         live_provider_rate_limit_per_minute=_env_int("EDGE_HUNTER_LIVE_PROVIDER_RATE_LIMIT_PER_MINUTE", 8, 1, 500),
+        live_provider_rate_limit_wait_seconds=_env_float("EDGE_HUNTER_LIVE_PROVIDER_RATE_LIMIT_WAIT_SECONDS", 15.0, 0.0, 60.0),
         symbol_catalog_cache_ttl_seconds=_env_int("EDGE_HUNTER_SYMBOL_CATALOG_CACHE_TTL_SECONDS", 86400, 300, 604800),
         symbol_search_limit=_env_int("EDGE_HUNTER_SYMBOL_SEARCH_LIMIT", 20, 5, 50),
         data_mode=data_mode,
