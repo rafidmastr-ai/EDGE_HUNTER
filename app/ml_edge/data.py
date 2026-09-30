@@ -20,6 +20,8 @@ XAU_COST_USD = {"base": 0.10, "sens_mid": 0.30, "sens_high": 0.50}
 # Estimated overnight financing per rollover (both directions), charged only when holding.
 SWAP_FX_PIPS = 0.5
 SWAP_XAU_USD = 0.50
+# The six symbols every saved EDGE ML model was trained on (later folders in data/raw are test-only).
+TRAINING_SYMBOLS = ("AUDUSD", "EURJPY", "EURUSD", "GBPUSD", "NZDUSD", "XAUUSD")
 
 
 @dataclass(frozen=True)
@@ -125,4 +127,4 @@ def resample_activity(data: SymbolData, minutes: int) -> tuple[np.ndarray, np.nd
     return np.add.reduceat(data.tick_volume, starts), np.add.reduceat(data.spread, starts) / counts
 
 
-__all__ = ["SymbolData", "cost_price", "swap_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]
+__all__ = ["TRAINING_SYMBOLS", "SymbolData", "cost_price", "swap_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]

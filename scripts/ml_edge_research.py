@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.ml_edge.data import discover_symbols, load_symbol  # noqa: E402
+from app.ml_edge.data import TRAINING_SYMBOLS, discover_symbols, load_symbol  # noqa: E402
 from app.ml_edge.features import FEATURE_VERSION, build_all  # noqa: E402
 from app.ml_edge.model import HYPER, SymbolModel  # noqa: E402
 from app.ml_edge.walkforward import (  # noqa: E402
@@ -66,7 +66,7 @@ def seg_trades(trades, name):
 def main() -> int:
     t_start = time.monotonic()
     log = lambda msg: print(f"[{time.monotonic() - t_start:6.0f}s] {msg}", flush=True)  # noqa: E731
-    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW)}
+    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW) if s in TRAINING_SYMBOLS}
     frames = build_all(symbols)
     feature_names = next(iter(frames.values())).names
     rows = build_rows(symbols, frames)

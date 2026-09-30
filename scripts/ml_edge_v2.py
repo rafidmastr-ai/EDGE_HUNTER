@@ -27,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.ml_edge.data import cost_price, discover_symbols, load_symbol, swap_price  # noqa: E402
+from app.ml_edge.data import TRAINING_SYMBOLS, cost_price, discover_symbols, load_symbol, swap_price  # noqa: E402
 from app.ml_edge.features import build_all  # noqa: E402
 from app.ml_edge.model import HYPER, SymbolModel  # noqa: E402
 from app.ml_edge.walkforward import (  # noqa: E402
@@ -227,7 +227,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     started = time.monotonic()
     log = lambda msg: print(f"[{time.monotonic() - started:6.0f}s] {msg}", flush=True)  # noqa: E731
-    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW)}
+    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW) if s in TRAINING_SYMBOLS}
     problems = check_data(symbols)
     if problems:
         print("Data incomplete — upload the missing files first:\n  " + "\n  ".join(problems))

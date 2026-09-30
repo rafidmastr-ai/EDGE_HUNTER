@@ -1,0 +1,480 @@
+{
+  "pair": "AUDJPY",
+  "data_utc": [
+    "2026-01-01 22:01",
+    "2026-09-28 20:59"
+  ],
+  "m1_bars": 275853,
+  "costs": {
+    "spread": 0.001,
+    "swap_per_night_B1": 0.005
+  },
+  "variants": {
+    "A": {
+      "title": "A - intraday (exit by 4 h / 20:45 UTC)",
+      "decisions_from": "2026-03-27 05:30",
+      "models": {
+        "global": {
+          "keep": 0.05,
+          "all": {
+            "trades": 69,
+            "win_rate": 0.6087,
+            "avg_r": 0.2134,
+            "median_r": 0.605,
+            "profit_factor": 1.721,
+            "net_r": 14.72,
+            "avg_r_ci95": [
+              0.0184,
+              0.4056
+            ],
+            "max_drawdown_r": 3.36
+          },
+          "monthly": {
+            "2026-04": {
+              "trades": 1,
+              "avg_r": -0.716,
+              "net_r": -0.72
+            },
+            "2026-05": {
+              "trades": 5,
+              "avg_r": -0.006,
+              "net_r": -0.03
+            },
+            "2026-06": {
+              "trades": 14,
+              "avg_r": -0.076,
+              "net_r": -1.07
+            },
+            "2026-07": {
+              "trades": 18,
+              "avg_r": 0.12,
+              "net_r": 2.17
+            },
+            "2026-08": {
+              "trades": 20,
+              "avg_r": 0.472,
+              "net_r": 9.44
+            },
+            "2026-09": {
+              "trades": 11,
+              "avg_r": 0.449,
+              "net_r": 4.93
+            }
+          },
+          "first_trade": "2026-04-20 08:00",
+          "live_mode_no_volume_spread": {
+            "trades": 65,
+            "win_rate": 0.6615,
+            "avg_r": 0.2605,
+            "median_r": 0.605,
+            "profit_factor": 1.953,
+            "net_r": 16.93,
+            "avg_r_ci95": [
+              0.0852,
+              0.4233
+            ],
+            "max_drawdown_r": 2.52
+          },
+          "reversed": {
+            "trades": 69,
+            "win_rate": 0.3913,
+            "avg_r": -0.2256,
+            "median_r": -0.6218,
+            "profit_factor": 0.563,
+            "net_r": -15.56,
+            "avg_r_ci95": [
+              -0.4196,
+              -0.0317
+            ],
+            "max_drawdown_r": 18.46
+          },
+          "always_long_same_times": {
+            "trades": 69,
+            "win_rate": 0.5362,
+            "avg_r": 0.0595,
+            "median_r": 0.1265,
+            "profit_factor": 1.159,
+            "net_r": 4.11,
+            "avg_r_ci95": [
+              -0.1653,
+              0.2693
+            ],
+            "max_drawdown_r": 7.35
+          },
+          "always_short_same_times": {
+            "trades": 69,
+            "win_rate": 0.4638,
+            "avg_r": -0.0717,
+            "median_r": -0.1414,
+            "profit_factor": 0.837,
+            "net_r": -4.95,
+            "avg_r_ci95": [
+              -0.2822,
+              0.1525
+            ],
+            "max_drawdown_r": 11.35
+          },
+          "random_direction": {
+            "runs": 200,
+            "mean_avg_r": -0.0017,
+            "p95_avg_r": 0.1494,
+            "share_of_random_runs_beating_model": 0.015
+          }
+        },
+        "EURJPY_model": {
+          "keep": 0.05,
+          "all": {
+            "trades": 80,
+            "win_rate": 0.55,
+            "avg_r": 0.0646,
+            "median_r": 0.2606,
+            "profit_factor": 1.162,
+            "net_r": 5.17,
+            "avg_r_ci95": [
+              -0.0768,
+              0.1954
+            ],
+            "max_drawdown_r": 5.86
+          },
+          "monthly": {
+            "2026-04": {
+              "trades": 5,
+              "avg_r": -0.447,
+              "net_r": -2.24
+            },
+            "2026-05": {
+              "trades": 5,
+              "avg_r": 0.158,
+              "net_r": 0.79
+            },
+            "2026-06": {
+              "trades": 12,
+              "avg_r": 0.026,
+              "net_r": 0.31
+            },
+            "2026-07": {
+              "trades": 22,
+              "avg_r": 0.071,
+              "net_r": 1.57
+            },
+            "2026-08": {
+              "trades": 20,
+              "avg_r": 0.105,
+              "net_r": 2.1
+            },
+            "2026-09": {
+              "trades": 16,
+              "avg_r": 0.164,
+              "net_r": 2.63
+            }
+          },
+          "first_trade": "2026-04-20 12:00",
+          "live_mode_no_volume_spread": {
+            "trades": 79,
+            "win_rate": 0.5823,
+            "avg_r": 0.1034,
+            "median_r": 0.2576,
+            "profit_factor": 1.283,
+            "net_r": 8.17,
+            "avg_r_ci95": [
+              -0.056,
+              0.271
+            ],
+            "max_drawdown_r": 5.02
+          },
+          "reversed": {
+            "trades": 80,
+            "win_rate": 0.45,
+            "avg_r": -0.0773,
+            "median_r": -0.2765,
+            "profit_factor": 0.836,
+            "net_r": -6.18,
+            "avg_r_ci95": [
+              -0.2078,
+              0.0658
+            ],
+            "max_drawdown_r": 8.89
+          },
+          "always_long_same_times": {
+            "trades": 80,
+            "win_rate": 0.625,
+            "avg_r": 0.1445,
+            "median_r": 0.587,
+            "profit_factor": 1.404,
+            "net_r": 11.56,
+            "avg_r_ci95": [
+              0.0003,
+              0.2665
+            ],
+            "max_drawdown_r": 4.87
+          },
+          "always_short_same_times": {
+            "trades": 80,
+            "win_rate": 0.375,
+            "avg_r": -0.1572,
+            "median_r": -0.5977,
+            "profit_factor": 0.692,
+            "net_r": -12.57,
+            "avg_r_ci95": [
+              -0.2802,
+              -0.0118
+            ],
+            "max_drawdown_r": 12.94
+          },
+          "random_direction": {
+            "runs": 200,
+            "mean_avg_r": -0.0126,
+            "p95_avg_r": 0.1754,
+            "share_of_random_runs_beating_model": 0.235
+          }
+        }
+      },
+      "context_EURJPY_same_months": {
+        "trades": 86,
+        "win_rate": 0.6163,
+        "avg_r": 0.1871,
+        "median_r": 0.5213,
+        "profit_factor": 1.617,
+        "net_r": 16.09,
+        "avg_r_ci95": [
+          0.0902,
+          0.2821
+        ],
+        "max_drawdown_r": 2.61
+      }
+    },
+    "B1": {
+      "title": "B1 - hold to TP/SL, 12 h cap, Friday 20:45 exit, swap",
+      "decisions_from": "2026-03-27 05:30",
+      "models": {
+        "global": {
+          "keep": 0.05,
+          "all": {
+            "trades": 97,
+            "win_rate": 0.6907,
+            "avg_r": 0.3252,
+            "median_r": 0.9405,
+            "profit_factor": 2.085,
+            "net_r": 31.55,
+            "avg_r_ci95": [
+              0.1778,
+              0.4819
+            ],
+            "max_drawdown_r": 3.11
+          },
+          "monthly": {
+            "2026-04": {
+              "trades": 10,
+              "avg_r": 0.503,
+              "net_r": 5.03
+            },
+            "2026-05": {
+              "trades": 20,
+              "avg_r": 0.131,
+              "net_r": 2.62
+            },
+            "2026-06": {
+              "trades": 16,
+              "avg_r": 0.307,
+              "net_r": 4.9
+            },
+            "2026-07": {
+              "trades": 19,
+              "avg_r": 0.202,
+              "net_r": 3.83
+            },
+            "2026-08": {
+              "trades": 20,
+              "avg_r": 0.344,
+              "net_r": 6.88
+            },
+            "2026-09": {
+              "trades": 12,
+              "avg_r": 0.69,
+              "net_r": 8.28
+            }
+          },
+          "first_trade": "2026-04-17 14:15",
+          "live_mode_no_volume_spread": {
+            "trades": 97,
+            "win_rate": 0.6701,
+            "avg_r": 0.2842,
+            "median_r": 0.938,
+            "profit_factor": 1.886,
+            "net_r": 27.56,
+            "avg_r_ci95": [
+              0.1315,
+              0.4351
+            ],
+            "max_drawdown_r": 3.21
+          },
+          "reversed": {
+            "trades": 97,
+            "win_rate": 0.3093,
+            "avg_r": -0.4568,
+            "median_r": -1.0048,
+            "profit_factor": 0.39,
+            "net_r": -44.31,
+            "avg_r_ci95": [
+              -0.6484,
+              -0.2647
+            ],
+            "max_drawdown_r": 44.31
+          },
+          "always_long_same_times": {
+            "trades": 97,
+            "win_rate": 0.299,
+            "avg_r": -0.4613,
+            "median_r": -1.0052,
+            "profit_factor": 0.386,
+            "net_r": -44.75,
+            "avg_r_ci95": [
+              -0.6346,
+              -0.2866
+            ],
+            "max_drawdown_r": 44.75
+          },
+          "always_short_same_times": {
+            "trades": 97,
+            "win_rate": 0.701,
+            "avg_r": 0.3297,
+            "median_r": 0.9405,
+            "profit_factor": 2.11,
+            "net_r": 31.99,
+            "avg_r_ci95": [
+              0.1807,
+              0.4749
+            ],
+            "max_drawdown_r": 3.02
+          },
+          "random_direction": {
+            "runs": 200,
+            "mean_avg_r": -0.0613,
+            "p95_avg_r": 0.1329,
+            "share_of_random_runs_beating_model": 0.0
+          }
+        },
+        "EURJPY_model": {
+          "keep": 0.05,
+          "all": {
+            "trades": 94,
+            "win_rate": 0.7553,
+            "avg_r": 0.4499,
+            "median_r": 0.9441,
+            "profit_factor": 2.888,
+            "net_r": 42.3,
+            "avg_r_ci95": [
+              0.3369,
+              0.5688
+            ],
+            "max_drawdown_r": 2.02
+          },
+          "monthly": {
+            "2026-04": {
+              "trades": 6,
+              "avg_r": 0.287,
+              "net_r": 1.72
+            },
+            "2026-05": {
+              "trades": 19,
+              "avg_r": 0.534,
+              "net_r": 10.14
+            },
+            "2026-06": {
+              "trades": 18,
+              "avg_r": 0.51,
+              "net_r": 9.17
+            },
+            "2026-07": {
+              "trades": 18,
+              "avg_r": 0.207,
+              "net_r": 3.72
+            },
+            "2026-08": {
+              "trades": 21,
+              "avg_r": 0.712,
+              "net_r": 14.96
+            },
+            "2026-09": {
+              "trades": 12,
+              "avg_r": 0.215,
+              "net_r": 2.58
+            }
+          },
+          "first_trade": "2026-04-20 13:45",
+          "live_mode_no_volume_spread": {
+            "trades": 92,
+            "win_rate": 0.7717,
+            "avg_r": 0.4803,
+            "median_r": 0.9474,
+            "profit_factor": 3.167,
+            "net_r": 44.19,
+            "avg_r_ci95": [
+              0.3605,
+              0.5937
+            ],
+            "max_drawdown_r": 2.03
+          },
+          "reversed": {
+            "trades": 94,
+            "win_rate": 0.2447,
+            "avg_r": -0.5754,
+            "median_r": -1.0062,
+            "profit_factor": 0.289,
+            "net_r": -54.09,
+            "avg_r_ci95": [
+              -0.7433,
+              -0.424
+            ],
+            "max_drawdown_r": 56.07
+          },
+          "always_long_same_times": {
+            "trades": 94,
+            "win_rate": 0.3723,
+            "avg_r": -0.3295,
+            "median_r": -1.0044,
+            "profit_factor": 0.519,
+            "net_r": -30.97,
+            "avg_r_ci95": [
+              -0.6627,
+              -0.0137
+            ],
+            "max_drawdown_r": 36.75
+          },
+          "always_short_same_times": {
+            "trades": 94,
+            "win_rate": 0.6277,
+            "avg_r": 0.204,
+            "median_r": 0.926,
+            "profit_factor": 1.562,
+            "net_r": 19.18,
+            "avg_r_ci95": [
+              -0.0468,
+              0.461
+            ],
+            "max_drawdown_r": 9.11
+          },
+          "random_direction": {
+            "runs": 200,
+            "mean_avg_r": -0.064,
+            "p95_avg_r": 0.1107,
+            "share_of_random_runs_beating_model": 0.0
+          }
+        }
+      },
+      "context_EURJPY_same_months": {
+        "trades": 100,
+        "win_rate": 0.69,
+        "avg_r": 0.3555,
+        "median_r": 0.9544,
+        "profit_factor": 2.201,
+        "net_r": 35.55,
+        "avg_r_ci95": [
+          0.1552,
+          0.5331
+        ],
+        "max_drawdown_r": 4.04
+      }
+    }
+  }
+}

@@ -76,3 +76,26 @@ class LoadMt5SymbolTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RepositoryHistoryTests(unittest.TestCase):
+    """The committed MT5 exports all share one server clock (Europe/Athens)."""
+
+    RAW = Path(__file__).resolve().parents[3] / "data" / "raw"
+
+    def test_every_symbol_folder_declares_the_athens_server_clock(self) -> None:
+        folders = sorted(p for p in self.RAW.iterdir() if (p / "SOURCE.json").exists())
+        self.assertIn("AUDJPY", [p.name for p in folders])
+        for folder in folders:
+            source = json.loads((folder / "SOURCE.json").read_text(encoding="utf-8"))
+            self.assertEqual(source["server_tz"], "Europe/Athens", folder.name)
+
+    def test_audjpy_first_and_last_bars_convert_to_utc(self) -> None:
+        from app.ml_edge.data import load_symbol
+
+        data = load_symbol(self.RAW / "AUDJPY")
+        first = datetime.fromtimestamp(int(data.m1.open_time[0]), tz=timezone.utc)
+        last = datetime.fromtimestamp(int(data.m1.open_time[-1]), tz=timezone.utc)
+        self.assertEqual(first, datetime(2026, 1, 1, 22, 1, tzinfo=timezone.utc))  # 00:01 server, UTC+2 in winter
+        self.assertEqual(last, datetime(2026, 9, 28, 20, 59, tzinfo=timezone.utc))  # 23:59 server, UTC+3 in summer
+        self.assertEqual(len(data.m1), 275853)

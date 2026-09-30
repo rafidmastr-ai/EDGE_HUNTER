@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.ml_edge.data import cost_price, discover_symbols, load_symbol, swap_price  # noqa: E402
+from app.ml_edge.data import TRAINING_SYMBOLS, cost_price, discover_symbols, load_symbol, swap_price  # noqa: E402
 from app.ml_edge.features import build_all  # noqa: E402
 from app.ml_edge.model import SymbolModel  # noqa: E402
 from app.ml_edge.volatility import OVERLAYS, VolModel, forecast_quality, make_vol_regressor, overlay_actions, realised_vol_ratio  # noqa: E402
@@ -334,7 +334,7 @@ def write_txt(results: dict, path: Path) -> None:
 def main() -> int:
     started = time.monotonic()
     log = lambda msg: print(f"[{time.monotonic() - started:6.0f}s] {msg}", flush=True)  # noqa: E731
-    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW)}
+    symbols = {s: load_symbol(RAW / s, CACHE) for s in discover_symbols(RAW) if s in TRAINING_SYMBOLS}
     results = {name: run_variant(name, cfg, symbols, log) for name, cfg in VARIANTS.items()}
     RESULTS.mkdir(parents=True, exist_ok=True)
     slim = {name: {k: v for k, v in res.items() if k != "records"} | {"portfolio_plain": portfolio(res, False), "portfolio_overlay": portfolio(res, True)}
