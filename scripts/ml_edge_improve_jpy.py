@@ -92,7 +92,8 @@ class Series:
         sel = (d != 0) & (self.times >= window[0]) & (self.times < window[1])
         n = int(sel.sum())
         orders = make_orders(self.times[sel], d[sel], np.full(n, np.nan), np.full(n, np.nan),
-                             stop_distance=self.model.label.barrier_atr * self.atr[sel], target_rr=np.full(n, cfg["target_rr"]),
+                             stop_distance=cfg.get("stop_atr", self.model.label.barrier_atr) * self.atr[sel],
+                             target_rr=np.full(n, cfg["target_rr"]),
                              breakeven_r=cfg["breakeven"])
         return simulate(self.data.m1, orders, execution_config(self.pair, self.model.label))
 
