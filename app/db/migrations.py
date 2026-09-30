@@ -468,6 +468,11 @@ END;
         "learning_continuous_learning",
         (Path(__file__).resolve().parents[2] / "migrations" / "011_learning_continuous_learning.sql").read_text(encoding="utf-8"),
     ),
+    Migration(
+        12,
+        "edge_ml_paper_trades",
+        (Path(__file__).resolve().parents[2] / "migrations" / "012_edge_ml_paper_trades.sql").read_text(encoding="utf-8"),
+    ),
 )
 
 

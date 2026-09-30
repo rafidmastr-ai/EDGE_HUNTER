@@ -47,6 +47,26 @@ class AnalysisServiceTests(unittest.TestCase):
         with_capital = service.analyze(AnalyzeRequest(symbol="XAUUSD", capital=10000))
         self.assertIn("capital_impact", with_capital)
 
+    def test_edge_ml_status_never_changes_the_main_signal(self) -> None:
+        class StubEdgeML:
+            def status(self, symbol):
+                return {"enabled": True, "experimental": True, "models": [{"model": f"B1/{symbol}"}]}
+
+        class BrokenEdgeML:
+            def status(self, symbol):
+                raise RuntimeError("boom")
+
+        request = AnalyzeRequest(symbol="XAUUSD", risk_percent=1.0, lot_mode="auto")
+        plain = LocalOHLCAnalysisService(self.root).analyze(request)
+        with_edge = LocalOHLCAnalysisService(self.root, edge_ml=StubEdgeML()).analyze(request)
+        broken = LocalOHLCAnalysisService(self.root, edge_ml=BrokenEdgeML()).analyze(request)
+        self.assertEqual(plain["metadata"]["edge_ml"], {"enabled": False})
+        self.assertEqual(with_edge["metadata"]["edge_ml"]["models"], [{"model": "B1/XAUUSD"}])
+        self.assertEqual(broken["metadata"]["edge_ml"]["last_error"], "edge_ml_status_failed")
+        for key in ("direction", "confidence", "entry", "target", "stop_loss", "selected_strategy", "reasons"):
+            self.assertEqual(with_edge[key], plain[key])
+            self.assertEqual(broken[key], plain[key])
+
     def test_missing_symbol_is_data_unavailable(self) -> None:
         service = LocalOHLCAnalysisService(self.root)
         with self.assertRaises(DataUnavailableError):

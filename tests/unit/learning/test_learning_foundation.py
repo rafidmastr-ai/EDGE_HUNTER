@@ -146,7 +146,7 @@ class LearningPersistenceTests(unittest.TestCase):
     def test_migration_is_idempotent(self):
         MigrationRunner(self.db).apply_all()
         rows = self.db.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()
-        self.assertEqual([row["version"] for row in rows], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        self.assertEqual([row["version"] for row in rows], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 
     def test_create_get_list_and_duplicate_protection(self):
         record = build_record()

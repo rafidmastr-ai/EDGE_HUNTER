@@ -20,7 +20,7 @@ class BootstrapTests(unittest.TestCase):
                 row = application.database.execute(
                     "SELECT COUNT(*) AS count FROM schema_migrations"
                 ).fetchone()
-                self.assertEqual(row["count"], 11)
+                self.assertEqual(row["count"], 12)
             finally:
                 # Release SQLite before TemporaryDirectory removes the file.
                 if application is not None:

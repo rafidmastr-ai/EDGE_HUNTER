@@ -84,6 +84,7 @@ class LocalOHLCAnalysisService:
         live_history_bars: int = 800,
         signal_filter: SignalFilter | None = None,
         cost_gate: CostGate | None = None,
+        edge_ml=None,
     ) -> None:
         self.project_root = Path(__file__).resolve().parents[2]
         self.data_root = data_root or (self.project_root / "data" / "raw")
@@ -92,6 +93,8 @@ class LocalOHLCAnalysisService:
         self.signal_filter = signal_filter
         # Optional cost-aware gate: withholds setups whose trading cost is too large vs the stop.
         self.cost_gate = cost_gate
+        # Optional experimental EDGE ML status (paper signals; never changes the decision above).
+        self.edge_ml = edge_ml
         self.signal_engine = SignalConfidenceEngine(StrategyRegistry.default(), signal_filter=signal_filter, cost_gate=cost_gate)
         self.live_provider = live_provider
         self.data_mode = data_mode if data_mode in {"local", "live"} else "local"
@@ -209,6 +212,7 @@ class LocalOHLCAnalysisService:
                     "strategy_learning": self.strategy_learning_status(),
                     "cost_gate": self._cost_gate_summary(timeframe_results),
                     "trade_cost": _selected_trade_cost(decision),
+                    "edge_ml": self.edge_ml_status(request.symbol),
                 },
             }
         )
@@ -229,6 +233,14 @@ class LocalOHLCAnalysisService:
             "withheld_setups": withheld,
             "note": "setups whose estimated spread+slippage+commission exceeds max_cost_r of the stop distance are withheld",
         }
+
+    def edge_ml_status(self, symbol: str) -> dict:
+        if self.edge_ml is None:
+            return {"enabled": False}
+        try:
+            return self.edge_ml.status(symbol)
+        except Exception:  # experimental add-on: never break the main analysis
+            return {"enabled": True, "models": [], "last_error": "edge_ml_status_failed"}
 
     def strategy_learning_status(self) -> dict:
         status = getattr(self.signal_filter, "status", None)

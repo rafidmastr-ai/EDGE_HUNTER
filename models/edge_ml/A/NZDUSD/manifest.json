@@ -1,0 +1,81 @@
+{
+ "symbol": "NZDUSD",
+ "architecture": "symbol",
+ "hyper": "large",
+ "label": {
+  "barrier_atr": 2.0,
+  "horizon_bars": 16
+ },
+ "feature_names": [
+  "atr_m15_over_d1",
+  "day_of_week",
+  "day_position",
+  "day_range_over_atr_d1",
+  "dist_asia_high",
+  "dist_asia_low",
+  "dist_ema200_h1",
+  "dist_ema200_h4",
+  "dist_ema200_m15",
+  "dist_ema20_h1",
+  "dist_ema20_m15",
+  "dist_ema50_h1",
+  "dist_ema50_h4",
+  "dist_ema50_m15",
+  "dist_pdh",
+  "dist_pdl",
+  "ema200_slope_m15",
+  "er_d1_10",
+  "er_h1_24",
+  "er_m15_16",
+  "gold_ret_4",
+  "h1_range8_over_atr",
+  "hour_cos",
+  "hour_sin",
+  "macd_hist_m15",
+  "minutes_since_0700",
+  "quote_is_usd",
+  "ret_d1_1",
+  "ret_d1_5",
+  "ret_h4_1",
+  "ret_m15_1",
+  "ret_m15_16",
+  "ret_m15_4",
+  "ret_m15_64",
+  "risk_on_4",
+  "rsi_h1",
+  "rsi_m15",
+  "rv_1d_over_20d",
+  "spread_z",
+  "tick_volume_z",
+  "us_dst",
+  "usd_strength_16",
+  "usd_strength_4",
+  "vol_level_z"
+ ],
+ "keep": 0.02,
+ "window_days": 60,
+ "warmup_days": 20,
+ "enabled": true,
+ "cost_price": 1e-05,
+ "info": {
+  "trained_through": "2023-11-14 23:02",
+  "validation": {
+   "architecture": "symbol",
+   "keep": 0.02,
+   "trades": 857,
+   "mean_net_r": 0.07212391684073177,
+   "per_fold": [
+    0.05096129259015256,
+    0.07829274273079696,
+    0.09148932163366152
+   ],
+   "enabled": true,
+   "positive_folds": 3
+  },
+  "stage1": {
+   "label": "b2_h16",
+   "hyper": "large"
+  }
+ },
+ "model_sha256": "e3c75f9bdfd89471f1f151a0372670a3c89449052aac9f8b399ae270cbe901a4"
+}

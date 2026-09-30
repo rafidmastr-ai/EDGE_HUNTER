@@ -223,6 +223,28 @@ class Phase12FullSystemIntegrationTests(unittest.TestCase):
         self.assertIn(response.status_code, {404, 400})
         self.assertNotIn("SQLite format", response.text)
 
+    def test_edge_ml_is_experimental_metadata_and_a_protected_endpoint(self) -> None:
+        anonymous = TestClient(self.app)
+        self.assertEqual(anonymous.get("/api/edge-ml").status_code, 401)
+        self._register()
+        response = self.client.post(
+            "/api/analyze",
+            headers={"X-CSRF-Token": self.csrf},
+            json={"symbol": "XAUUSD", "risk_percent": 1.0, "lot_mode": "auto"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        edge = response.json()["metadata"]["edge_ml"]
+        self.assertTrue(edge["enabled"])
+        self.assertTrue(edge["experimental"])
+        self.assertEqual([m["model"] for m in edge["models"]], ["B1/XAUUSD"])
+        self.assertEqual(edge["load_errors"], {})
+        status = self.client.get("/api/edge-ml?symbol=eurjpy")
+        self.assertEqual(status.status_code, 200, status.text)
+        body = status.json()
+        self.assertEqual(sorted(m["model"] for m in body["models"]), ["A/EURJPY", "B1/EURJPY"])
+        self.assertEqual(body["paper_trades"], [])
+        self.assertIn("oos", body["models"][0]["research_results"])
+
     def test_anonymous_client_cannot_analyze_or_admin(self) -> None:
         anonymous = TestClient(self.app)
         analyze = anonymous.post(

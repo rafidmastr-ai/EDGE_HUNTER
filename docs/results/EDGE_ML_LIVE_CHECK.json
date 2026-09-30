@@ -1,0 +1,209 @@
+{
+  "new_forward_start": "2025-09-01",
+  "models": {
+    "A/AUDUSD": {
+      "signals_research": 725,
+      "signals_live_mode": 766,
+      "signal_agreement": 0.5828,
+      "research": {
+        "trades": 202,
+        "win_rate": 0.5743,
+        "avg_r": 0.1221,
+        "profit_factor": 1.345
+      },
+      "live_mode": {
+        "trades": 219,
+        "win_rate": 0.5342,
+        "avg_r": 0.0463,
+        "profit_factor": 1.117
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 4
+    },
+    "A/EURJPY": {
+      "signals_research": 845,
+      "signals_live_mode": 860,
+      "signal_agreement": 0.5319,
+      "research": {
+        "trades": 208,
+        "win_rate": 0.5913,
+        "avg_r": 0.1292,
+        "profit_factor": 1.402
+      },
+      "live_mode": {
+        "trades": 196,
+        "win_rate": 0.5561,
+        "avg_r": 0.0811,
+        "profit_factor": 1.233
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 4
+    },
+    "A/GBPUSD": {
+      "signals_research": 339,
+      "signals_live_mode": 331,
+      "signal_agreement": 0.6341,
+      "research": {
+        "trades": 119,
+        "win_rate": 0.5714,
+        "avg_r": 0.1104,
+        "profit_factor": 1.286
+      },
+      "live_mode": {
+        "trades": 102,
+        "win_rate": 0.5392,
+        "avg_r": 0.0678,
+        "profit_factor": 1.166
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 0
+    },
+    "A/NZDUSD": {
+      "signals_research": 340,
+      "signals_live_mode": 354,
+      "signal_agreement": 0.5917,
+      "research": {
+        "trades": 100,
+        "win_rate": 0.54,
+        "avg_r": 0.0831,
+        "profit_factor": 1.222
+      },
+      "live_mode": {
+        "trades": 92,
+        "win_rate": 0.5326,
+        "avg_r": 0.0671,
+        "profit_factor": 1.179
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 0
+    },
+    "B1/EURJPY": {
+      "signals_research": 1191,
+      "signals_live_mode": 1182,
+      "signal_agreement": 0.8583,
+      "research": {
+        "trades": 232,
+        "win_rate": 0.6034,
+        "avg_r": 0.1928,
+        "profit_factor": 1.512
+      },
+      "live_mode": {
+        "trades": 220,
+        "win_rate": 0.6182,
+        "avg_r": 0.2319,
+        "profit_factor": 1.656
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 3
+    },
+    "B1/GBPUSD": {
+      "signals_research": 422,
+      "signals_live_mode": 395,
+      "signal_agreement": 0.7917,
+      "research": {
+        "trades": 101,
+        "win_rate": 0.4356,
+        "avg_r": -0.1525,
+        "profit_factor": 0.716
+      },
+      "live_mode": {
+        "trades": 97,
+        "win_rate": 0.4433,
+        "avg_r": -0.1233,
+        "profit_factor": 0.768
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 1
+    },
+    "B1/NZDUSD": {
+      "signals_research": 469,
+      "signals_live_mode": 490,
+      "signal_agreement": 0.6282,
+      "research": {
+        "trades": 100,
+        "win_rate": 0.61,
+        "avg_r": 0.164,
+        "profit_factor": 1.434
+      },
+      "live_mode": {
+        "trades": 98,
+        "win_rate": 0.602,
+        "avg_r": 0.1569,
+        "profit_factor": 1.396
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 3
+    },
+    "B1/XAUUSD": {
+      "signals_research": 465,
+      "signals_live_mode": 458,
+      "signal_agreement": 0.876,
+      "research": {
+        "trades": 110,
+        "win_rate": 0.4636,
+        "avg_r": -0.0625,
+        "profit_factor": 0.879
+      },
+      "live_mode": {
+        "trades": 106,
+        "win_rate": 0.4434,
+        "avg_r": -0.0953,
+        "profit_factor": 0.822
+      },
+      "window_80d_same_decision": "60/60",
+      "window_80d_trade_samples": 0
+    }
+  },
+  "replay_A": [
+    {
+      "bar": 1769627700,
+      "max_abs_feature_diff": 0.0022878646850585938
+    },
+    {
+      "bar": 1778167800,
+      "max_abs_feature_diff": 0.004588603973388672
+    },
+    {
+      "bar": 1787080500,
+      "max_abs_feature_diff": 0.024677276611328125
+    },
+    {
+      "bar": 1788791400,
+      "max_abs_feature_diff": 0.010458707809448242
+    },
+    {
+      "bar": 1775818800,
+      "max_abs_feature_diff": 0.009350776672363281
+    },
+    {
+      "bar": 1762197300,
+      "max_abs_feature_diff": 0.007515430450439453
+    }
+  ],
+  "replay_B1": [
+    {
+      "bar": 1776082500,
+      "max_abs_feature_diff": 0.011111259460449219
+    },
+    {
+      "bar": 1766505600,
+      "max_abs_feature_diff": 0.01024627685546875
+    },
+    {
+      "bar": 1773996300,
+      "max_abs_feature_diff": 0.00762176513671875
+    },
+    {
+      "bar": 1790607600,
+      "max_abs_feature_diff": 0.010221004486083984
+    },
+    {
+      "bar": 1764909900,
+      "max_abs_feature_diff": 0.016772747039794922
+    },
+    {
+      "bar": 1771391700,
+      "max_abs_feature_diff": 0.004351139068603516
+    }
+  ]
+}

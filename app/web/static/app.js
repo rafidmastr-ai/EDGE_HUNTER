@@ -105,6 +105,8 @@
     });
     if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
 
+    renderEdgeML(data.metadata?.edge_ml);
+
     const impact = data.capital_impact;
     const impactCard = el('capital-impact');
     if (impact) {
@@ -118,6 +120,39 @@
 
     window.__lastChart = { candles: data.chart || [], markers: { entry: data.entry, target: data.target, stop: data.stop_loss } };
     drawChart(window.__lastChart.candles, window.__lastChart.markers);
+  }
+
+  // Experimental EDGE ML paper signals: separate from the main decision above.
+  function renderEdgeML(edge) {
+    const body = el('edge-ml-body');
+    body.innerHTML = '';
+    if (edge?.warning_ar) el('edge-ml-warning').textContent = edge.warning_ar;
+    const models = edge?.enabled ? (edge.models || []) : [];
+    const fmtR = (value) => (value === null || value === undefined ? '—' : `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(3)}R`);
+    models.forEach((model) => {
+      const latest = model.latest || {};
+      const research = model.research_results || {};
+      const paper = model.paper || {};
+      const decision = latest.direction === 'NONE' ? 'لا صفقة' : (directionText[latest.direction] || latest.direction);
+      const when = latest.bar_close_utc ? new Date(latest.bar_close_utc).toLocaleString('ar-IQ', { hour12: false }) : '—';
+      const cells = [
+        `${model.model} — ${model.variant_title_ar || ''}`,
+        `${decision}${latest.fresh ? '' : ' (قديم)'} · ${when}`,
+        latest.stop_loss === null || latest.stop_loss === undefined ? '—' : `${formatPrice(latest.reference_price)} / ${formatPrice(latest.stop_loss)} / ${formatPrice(latest.take_profit)}`,
+        `OOS ${fmtR(research.oos?.avg_r)} · 2025 ${fmtR(research.fwd_2025_jan_aug?.avg_r)} · جديد ${fmtR(research.new_forward?.avg_r)}`,
+        paper.closed_trades ? `${paper.closed_trades} مغلقة · ${fmtR(paper.avg_r_net)} · مفتوحة ${paper.open_trades}` : `مفتوحة ${paper.open_trades || 0}`,
+      ];
+      const tr = document.createElement('tr');
+      cells.forEach((text) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    if (!body.children.length) {
+      body.innerHTML = `<tr><td colspan="5">${edge?.enabled ? 'لا يوجد نموذج مفعّل لهذا الرمز.' : 'EDGE ML غير مفعّل.'}</td></tr>`;
+    }
   }
 
   // Clear a previous result so an error for one symbol is never shown next to
@@ -135,6 +170,7 @@
     ['entry', 'target', 'stop-loss', 'lot'].forEach((id) => { el(id).textContent = '—'; });
     el('comparison-body').innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
     el('capital-impact').hidden = true;
+    el('edge-ml-body').innerHTML = '<tr><td colspan="5">لا توجد نتيجة بعد.</td></tr>';
     window.__lastChart = { candles: [], markers: {} };
     drawChart([], {});
   }

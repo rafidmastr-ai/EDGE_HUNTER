@@ -51,6 +51,18 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("kind === 'login'", self.js)
         self.assertIn("X-CSRF-Token", self.js)
 
+    def test_edge_ml_card_is_separate_from_the_main_signal(self) -> None:
+        self.assertIn('id="edge-ml-card"', self.html)
+        self.assertIn('id="edge-ml-body"', self.html)
+        self.assertIn("تجريبي", self.html)
+        self.assertIn("renderEdgeML(data.metadata?.edge_ml)", self.js)
+        render = self.js.split("function renderEdgeML(edge)", 1)[1].split("function clearResult", 1)[0]
+        # model values are written with textContent only, never as HTML
+        self.assertNotIn("innerHTML = `<td", render)
+        self.assertIn("td.textContent = text", render)
+        clear = self.js.split("function clearResult", 1)[1].split("function drawChart", 1)[0]
+        self.assertIn("edge-ml-body", clear)
+
     def test_admin_dashboard_contract_exists(self) -> None:
         root = Path(__file__).resolve().parents[3]
         admin_html = (root / "app" / "web" / "static" / "admin.html").read_text(encoding="utf-8")

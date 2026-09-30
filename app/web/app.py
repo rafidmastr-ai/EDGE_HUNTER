@@ -6,6 +6,7 @@ public-edge security, observability and production controls.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import hmac
 import json
 import logging
@@ -40,7 +41,7 @@ from app.web.security import (
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
 )
-from config.config_hunter import Settings, load_settings
+from config.config_hunter import PROJECT_ROOT, Settings, load_settings
 
 
 APP_VERSION = "phase13-v1"
@@ -171,6 +172,22 @@ def create_web_app(
     # and the post-response recorder that feeds live setups back into training.
     strategy_filter = StrategyLearningFilter(settings.strategy_ml_model_path, enabled=settings.strategy_ml_enabled)
     live_signal_recorder = LiveSignalRecorder(database, enabled=settings.strategy_ml_record_live)
+    # Experimental EDGE ML paper signals: own card and paper-trade log, never the main signal.
+    edge_ml = None
+    if settings.edge_ml_enabled:
+        from app.ml_edge.live import SYMBOLS as EDGE_ML_SYMBOLS, EdgeMLScheduler, EdgeMLService
+        from app.ml_edge.live_store import M1Store
+
+        edge_ml = EdgeMLService(
+            settings.edge_ml_models_dir,
+            M1Store(settings.edge_ml_store_dir, EDGE_ML_SYMBOLS, raw_dir=data_root or (PROJECT_ROOT / "data" / "raw")),
+            database,
+            live_provider,
+        )
+        # Only a configured live provider feeds the store; the test environment and local mode never start the thread.
+        if (settings.data_mode == "live" and settings.environment != "test"
+                and live_provider is not None and getattr(live_provider, "configured", False)):
+            _run_with_app(app, EdgeMLScheduler(edge_ml, interval_minutes=settings.edge_ml_refresh_minutes))
     service = LocalOHLCAnalysisService(
         data_root=data_root,
         live_provider=live_provider,
@@ -181,8 +198,10 @@ def create_web_app(
         signal_filter=strategy_filter if settings.data_mode == "live" else None,
         # Cost-aware gate is a deterministic rule (not a learned model): both modes.
         cost_gate=CostGate(max_cost_r=settings.cost_gate_max_cost_r) if settings.cost_gate_enabled else None,
+        edge_ml=edge_ml,
     )
     app.state.analysis_service = service
+    app.state.edge_ml = edge_ml
     app.state.strategy_filter = strategy_filter
     app.state.live_signal_recorder = live_signal_recorder
     static_dir = Path(__file__).resolve().parent / "static"
@@ -412,6 +431,17 @@ def create_web_app(
             "expires_at": state.expires_at.isoformat() if state.expires_at else None,
         }
 
+    @app.get("/api/edge-ml")
+    async def edge_ml_status(request: Request, symbol: str | None = None, limit: int = 100) -> JSONResponse:
+        """Experimental EDGE ML models: latest decisions, research results and paper trades."""
+        auth.require_analysis_access(request.cookies.get(SESSION_COOKIE), expected_scope=USER_SCOPE)
+        if edge_ml is None:
+            payload = {"enabled": False, "models": [], "paper_trades": []}
+        else:
+            symbol = symbol.strip().upper()[:12] if symbol else None
+            payload = {**edge_ml.status(symbol), "paper_trades": edge_ml.paper_trades(symbol, max(1, min(int(limit), 500)))}
+        return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+
     @app.post("/api/analyze", response_model=AnalysisResponse)
     async def analyze(payload: AnalyzeRequest, request: Request, background_tasks: BackgroundTasks) -> dict:
         _user_csrf_session(request, auth)
@@ -595,6 +625,22 @@ def _log_auth_failure(request: Request, area: str, exc: AuthError) -> None:
             "session_id": exc.details.get("session_id"),
         },
     )
+
+
+def _run_with_app(app: FastAPI, worker) -> None:
+    """Start ``worker`` when the app starts serving and stop it on shutdown (lifespan wrapper)."""
+    inner = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(asgi_app):
+        worker.start()
+        try:
+            async with inner(asgi_app) as state:
+                yield state
+        finally:
+            worker.stop()
+
+    app.router.lifespan_context = lifespan
 
 
 def _resolve(request: Request, area: str, resolver):

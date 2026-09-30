@@ -367,7 +367,7 @@ class OutcomePersistenceTests(unittest.TestCase):
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(learning_records)").fetchall()}
         self.assertIn("label_version", columns)
         versions = [row["version"] for row in self.db.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()]
-        self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ class DatabaseTests(unittest.TestCase):
                     "SELECT version, name FROM schema_migrations ORDER BY version"
                 ).fetchall()
 
-                self.assertEqual(len(rows), 11)
+                self.assertEqual(len(rows), 12)
                 self.assertEqual(rows[0]["version"], 1)
                 self.assertEqual(rows[0]["name"], "foundation")
                 self.assertEqual(rows[1]["version"], 2)

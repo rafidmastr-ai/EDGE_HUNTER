@@ -282,7 +282,7 @@ class FeatureStorePersistenceTests(unittest.TestCase):
                 runner.apply_all()
                 runner.apply_all()
                 versions = [row["version"] for row in db.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()]
-                self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+                self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
             finally:
                 db.close()
 
@@ -307,7 +307,7 @@ class FeatureStorePersistenceTests(unittest.TestCase):
                 runner = MigrationRunner(db)
                 runner.apply_all()
                 after = [row["version"] for row in db.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()]
-                self.assertEqual(after, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+                self.assertEqual(after, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
                 self.assertIsNotNone(
                     db.execute(
                         "SELECT feature_snapshot_id FROM learning_records LIMIT 1"

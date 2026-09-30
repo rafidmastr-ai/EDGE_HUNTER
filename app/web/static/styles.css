@@ -147,6 +147,8 @@ select:focus, input:focus { border-color: rgba(37,150,255,.65); box-shadow: 0 0 
 .chart-empty { position:absolute; inset:0; display:grid; place-items:center; color:#60738c; font-size:11px; pointer-events:none; }
 .lower-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
 .reasons-card, .comparison-card { border:1px solid var(--line); border-radius:15px; padding:14px; background: rgba(6,17,29,.76); min-height: 180px; }
+.edge-ml-card { border:1px dashed var(--line); border-radius:15px; padding:14px; background: rgba(6,17,29,.76); margin-top:10px; }
+.edge-ml-warning { margin:4px 0 10px; font-size:12px; opacity:.8; }
 .card-title { font-weight:800; font-size:13px; margin-bottom:10px; }
 .reason-list { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
 .reason-list li { display:flex; gap:8px; color:#bcc8d8; font-size:11px; line-height:1.5; }
