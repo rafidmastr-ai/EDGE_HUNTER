@@ -77,12 +77,30 @@ def _source_key(files: list[Path]) -> str:
     return digest.hexdigest()[:16]
 
 
-def load_symbol(directory: Path, cache_dir: Path | None = None) -> SymbolData:
+DEFAULT_SERVER_TZ = "Europe/Athens"  # MetaQuotes-Demo server clock of every export in this project
+
+
+def find_m1_files(raw_dir: Path, symbol: str) -> list[Path]:
+    """``<raw>/<SYM>/<SYM>_M1_*.csv`` (repository layout) or ``<raw>/<SYM>_M1_*.csv`` (flat copy)."""
+    raw_dir = Path(raw_dir)
+    return sorted((raw_dir / symbol).glob(f"{symbol}_M1_*.csv")) or sorted(raw_dir.glob(f"{symbol}_M1_*.csv"))
+
+
+def load_symbol(directory: Path, cache_dir: Path | None = None, *, files: list[Path] | None = None,
+                symbol: str | None = None, default_tz: str | None = None) -> SymbolData:
+    """Load MT5 M1 exports. ``SOURCE.json`` gives the server time zone; without it ``default_tz`` is used
+    (``files``/``symbol`` allow the flat layout)."""
     directory = Path(directory)
-    source = json.loads((directory / "SOURCE.json").read_text(encoding="utf-8"))
+    source_path = directory / "SOURCE.json"
+    if source_path.exists():
+        source = json.loads(source_path.read_text(encoding="utf-8"))
+    elif default_tz is not None:
+        source = {"server_tz": default_tz, "symbol": symbol or directory.name}
+    else:
+        raise FileNotFoundError(f"missing {source_path}")
     zone = ZoneInfo(source["server_tz"])
-    symbol = str(source.get("symbol") or directory.name).upper()
-    files = sorted(directory.glob(f"{directory.name}_M1_*.csv"))
+    symbol = str(source.get("symbol") or symbol or directory.name).upper()
+    files = sorted(files) if files is not None else sorted(directory.glob(f"{directory.name}_M1_*.csv"))
     if not files:
         raise ValueError(f"no M1 files in {directory}")
     cache = None
@@ -127,4 +145,4 @@ def resample_activity(data: SymbolData, minutes: int) -> tuple[np.ndarray, np.nd
     return np.add.reduceat(data.tick_volume, starts), np.add.reduceat(data.spread, starts) / counts
 
 
-__all__ = ["TRAINING_SYMBOLS", "SymbolData", "cost_price", "swap_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]
+__all__ = ["DEFAULT_SERVER_TZ", "TRAINING_SYMBOLS", "SymbolData", "find_m1_files", "cost_price", "swap_price", "discover_symbols", "load_symbol", "pip_size", "resample_activity"]

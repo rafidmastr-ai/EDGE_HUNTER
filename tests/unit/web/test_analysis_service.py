@@ -157,6 +157,23 @@ class AnalysisServiceTests(unittest.TestCase):
         result = LocalOHLCAnalysisService(self.root, edge_ml=stub).analyze(AnalyzeRequest(symbol=None))
         self.assertIn("النماذج قيد التحميل والتحديث الأول", result["reasons"])
 
+    def test_classic_no_signal_on_a_pair_without_a_model_points_to_the_model_pairs(self) -> None:
+        stub = self._stub(None)
+        stub.model_symbols = lambda: ["AUDJPY", "EURJPY"]
+        stub.readiness = lambda: {"problems_ar": []}
+        service = LocalOHLCAnalysisService(self.root, edge_ml=stub)
+        service._analyze_classic_original = service._analyze_classic
+
+        def classic(request):
+            result, obs = service._analyze_classic_original(request)
+            result["direction"] = "NO_CLEAR_SIGNAL"
+            return result, obs
+
+        service._analyze_classic = classic
+        result = service.analyze(AnalyzeRequest(symbol="XAUUSD"))
+        self.assertTrue(any("AUDJPY, EURJPY" in r for r in result["reasons"]))
+        self.assertTrue(any("فارغاً" in r for r in result["reasons"]))
+
     def test_empty_symbol_needs_edge_ml(self) -> None:
         with self.assertRaises(ValueError):
             LocalOHLCAnalysisService(self.root).analyze(AnalyzeRequest(symbol=None))

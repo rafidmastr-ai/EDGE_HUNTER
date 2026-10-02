@@ -126,7 +126,9 @@ class Settings:
     edge_ml_enabled: bool = True
     edge_ml_models_dir: Path = PROJECT_ROOT / "models" / "edge_ml"
     edge_ml_store_dir: Path = PROJECT_ROOT / "data" / "processed" / "edge_ml_live"
-    edge_ml_refresh_minutes: int = 15
+    edge_ml_refresh_minutes: int = 30
+    # background provider requests per UTC day (Twelve Data free plan: 800 credits/day in total)
+    edge_ml_daily_request_budget: int = 600
 
 
 def load_settings() -> Settings:
@@ -233,5 +235,6 @@ def load_settings() -> Settings:
         edge_ml_enabled=_env_bool("EDGE_HUNTER_EDGE_ML_ENABLED", True),
         edge_ml_models_dir=Path(os.getenv("EDGE_HUNTER_EDGE_ML_MODELS_DIR", str(PROJECT_ROOT / "models" / "edge_ml"))),
         edge_ml_store_dir=Path(os.getenv("EDGE_HUNTER_EDGE_ML_STORE_DIR", str(PROJECT_ROOT / "data" / "processed" / "edge_ml_live"))),
-        edge_ml_refresh_minutes=_env_int("EDGE_HUNTER_EDGE_ML_REFRESH_MINUTES", 15, 15, 240),
+        edge_ml_refresh_minutes=_env_int("EDGE_HUNTER_EDGE_ML_REFRESH_MINUTES", 30, 15, 240),
+        edge_ml_daily_request_budget=_env_int("EDGE_HUNTER_EDGE_ML_DAILY_REQUEST_BUDGET", 600, 50, 100_000),
     )

@@ -274,6 +274,13 @@ class Phase12FullSystemIntegrationTests(unittest.TestCase):
                                     json={"symbol": "XAU/USD", "risk_percent": 1.0, "lot_mode": "auto"})
         self.assertEqual(response.json()["metadata"]["recommendation_source"], "edge_ml")
 
+    def test_index_serves_versioned_assets_without_caching(self) -> None:
+        page = self.client.get("/")
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.headers["cache-control"], "no-cache")
+        self.assertRegex(page.text, r'/static/app\.js\?v=\d+-\d+')
+        self.assertRegex(page.text, r'/static/styles\.css\?v=\d+-\d+')
+
     def test_anonymous_client_cannot_analyze_or_admin(self) -> None:
         anonymous = TestClient(self.app)
         analyze = anonymous.post(

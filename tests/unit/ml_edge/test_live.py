@@ -15,7 +15,7 @@ from app.ml_edge.data import SymbolData, cost_price
 from app.ml_edge.features import build_all
 from app.ml_edge.labels import LabelConfig
 from app.ml_edge.live import SYMBOLS, EdgeMLService, LatestDecision, market_open, normalize_symbol
-from app.ml_edge.live_store import M1Store, StoredSeries, fetch_updates
+from app.ml_edge.live_store import M1Store, StoredSeries, backfill_history, fetch_updates
 from app.ml_edge.model import SymbolModel
 from app.ml_edge.walkforward import execution_config
 from app.providers.models import LiveProviderError
@@ -54,7 +54,7 @@ class FakeProvider:
         self.calls: list[tuple[datetime, datetime]] = []
         self.errors = errors or {}
 
-    def get_ohlc(self, symbol, timeframe, start, end):
+    def get_ohlc(self, symbol, timeframe, start, end, max_bars=None):
         self.calls.append((start, end))
         code = self.errors.get(len(self.calls))
         if code:
@@ -149,6 +149,22 @@ class StoreTests(unittest.TestCase):
         added = fetch_updates(store, provider, "EURUSD", monday, pause=lambda s: None, max_pages=60)
         self.assertGreater(added, 0)  # the store moved past the weekend instead of stopping there
         self.assertEqual(store.series("EURUSD").last_time, int((monday - timedelta(minutes=1)).timestamp()))
+
+    def test_backfill_fetches_history_backwards_until_the_target(self) -> None:
+        store = M1Store(self.dir, ("EURUSD",))
+        now = datetime(2026, 1, 21, 12, 0, tzinfo=timezone.utc)  # Wednesday
+        provider = FakeProvider()
+        provider.bulk_max_bars = 2000
+        added = backfill_history(store, provider, "EURUSD", now, target_days=5, pause=lambda s: None)
+        series = store.series("EURUSD")
+        self.assertGreater(added, 5 * 1440 - 100)
+        self.assertLessEqual(int(series.t[0]), int((now - timedelta(days=5)).timestamp()) + 60)
+        self.assertEqual(len(series.t), len(set(series.t.tolist())))
+        self.assertTrue(all(c[0] <= c[1] for c in provider.calls))
+        self.assertGreater(provider.calls[0][0], provider.calls[-1][0])  # newest first, going back
+        calls = len(provider.calls)
+        backfill_history(store, provider, "EURUSD", now, target_days=5, pause=lambda s: None)
+        self.assertEqual(len(provider.calls), calls)  # already covered: no more requests
 
     def test_market_hours(self) -> None:
         self.assertFalse(market_open(datetime(2026, 1, 10, 12, tzinfo=timezone.utc)))  # Saturday
@@ -296,7 +312,15 @@ class RecommendationTests(unittest.TestCase):
         best, ranked = self.svc.best_recommendation(self.NOW)
         self.assertEqual((best["model"], best["tier"], best["direction"]), ("B1/EURJPY", "below_threshold", "SELL"))
         self.assertEqual((best["stop_loss"], best["take_profit"]), (150.2, 149.8))
-        self.assertIsNone(self.svc.recommendation("EURJPY", self.NOW))  # a chosen symbol needs a real signal
+        # a typed pair with a model gets that model's leaning too (never "no trade")
+        typed = self.svc.recommendation("EUR/JPY", self.NOW)
+        self.assertEqual((typed["model"], typed["tier"], typed["direction"]), ("B1/EURJPY", "below_threshold", "SELL"))
+        self.assertIsNone(self.svc.recommendation("EURJPY", self.NOW, include_candidates=False))
+        # not enough M1 history behind the model: no recommendation from it at all
+        self.svc.state.store_coverage = {s: {"days": 120.0} for s in SYMBOLS}
+        self.svc.state.store_coverage["EURJPY"] = {"days": 10.0}
+        self.assertIsNone(self.svc.recommendation("EURJPY", self.NOW))
+        self.svc.state.store_coverage = {}
         # an active signal always ranks above any candidate
         self.decide("A/NZDUSD", "BUY", 0.05)
         best, _ = self.svc.best_recommendation(self.NOW)
@@ -336,6 +360,40 @@ class RecommendationTests(unittest.TestCase):
         self.assertAlmostEqual(self.svc.quote_to_usd("AUDJPY"), 1.1 / 160.0)
         self.assertEqual(self.svc.quote_to_usd("GBP/USD"), 1.0)
         self.assertIsNone(self.svc.quote_to_usd("EURGBP"))
+
+
+class BudgetTests(unittest.TestCase):
+    def test_daily_budget_and_credit_exhaustion_pause_background_requests(self) -> None:
+        from app.ml_edge.live import _BudgetedProvider
+
+        class Inner:
+            def __init__(self):
+                self.calls, self.fail = 0, None
+
+            def get_ohlc(self, *a, **k):
+                self.calls += 1
+                if self.fail:
+                    raise LiveProviderError(self.fail, code="provider_429")
+                return []
+
+        inner = Inner()
+        budgeted = _BudgetedProvider(inner, daily_budget=2)
+        budgeted.get_ohlc("EURUSD", "M1", None, None)
+        budgeted.get_ohlc("EURUSD", "M1", None, None)
+        with self.assertRaises(LiveProviderError) as raised:
+            budgeted.get_ohlc("EURUSD", "M1", None, None)
+        self.assertEqual(raised.exception.code, "edge_ml_budget_paused")
+        self.assertEqual(inner.calls, 2)
+
+        budgeted = _BudgetedProvider(inner, daily_budget=100)
+        inner.fail = "You have run out of API credits for the day."
+        with self.assertRaises(LiveProviderError):
+            budgeted.get_ohlc("EURUSD", "M1", None, None)
+        self.assertEqual(budgeted.blocked_reason(), "credits")
+        inner.fail = None
+        with self.assertRaises(LiveProviderError) as raised:
+            budgeted.get_ohlc("EURUSD", "M1", None, None)
+        self.assertEqual(raised.exception.code, "edge_ml_credits_paused")
 
 
 class LifespanTests(unittest.TestCase):

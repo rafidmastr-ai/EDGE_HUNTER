@@ -17,7 +17,7 @@ from typing import Callable
 
 import numpy as np
 
-from app.ml_edge.data import SymbolData, load_symbol
+from app.ml_edge.data import DEFAULT_SERVER_TZ, SymbolData, find_m1_files, load_symbol
 from app.research.intraday import DAY, Bars
 
 logger = logging.getLogger("edge_hunter.edge_ml")
@@ -26,6 +26,7 @@ EMPTY_WINDOW_CODES = frozenset({"live_empty_data", "provider_400"})
 RATE_LIMIT_CODES = frozenset({"provider_local_rate_limited", "provider_rate_limited", "provider_429"})
 RATE_LIMIT_RETRIES = 4
 RATE_LIMIT_WAIT_SECONDS = 20.0
+BACKFILL_DAYS = 95  # calendar days of M1 the models need (60-day features + 20-day threshold warm-up, with margin)
 RESERVED_REQUESTS = 3  # one user analysis = 3 provider requests (M5, M15, H1)
 
 
@@ -75,8 +76,16 @@ class M1Store:
         if path.exists():
             z = np.load(path)
             return StoredSeries(z["t"], z["o"], z["h"], z["l"], z["c"], z["v"], z["s"])
-        if self.raw_dir is not None and (self.raw_dir / symbol / "SOURCE.json").exists():
-            data = load_symbol(self.raw_dir / symbol, self.directory / "seed_cache")
+        files = find_m1_files(self.raw_dir, symbol) if self.raw_dir is not None else []
+        if files:
+            folder = files[0].parent
+            if not (folder / "SOURCE.json").exists():
+                logger.warning("edge_ml: %s has no SOURCE.json, assuming %s server time", folder, DEFAULT_SERVER_TZ)
+            try:
+                data = load_symbol(folder, self.directory / "seed_cache", files=files, symbol=symbol, default_tz=DEFAULT_SERVER_TZ)
+            except Exception:  # unreadable export: start empty, the backfill fetches history instead
+                logger.exception("edge_ml: could not read %s history from %s", symbol, folder)
+                return _empty()
             m = data.m1
             keep = m.open_time >= m.open_time[-1] - self.keep_days * DAY
             series = StoredSeries(m.open_time[keep], m.open[keep], m.high[keep], m.low[keep], m.close[keep],
@@ -95,8 +104,11 @@ class M1Store:
     def append(self, symbol: str, rows: list[tuple[int, float, float, float, float]]) -> int:
         """Add (utc_seconds, open, high, low, close) minute bars; existing timestamps are kept as they are."""
         current = self.series(symbol)
-        known = set(current.t[-20000:].tolist()) if len(current.t) else set()
-        fresh = sorted({r[0]: r for r in rows if r[0] not in known and (current.last_time is None or r[0] > current.t[0])}.values())
+        candidates = sorted({int(r[0]): r for r in rows}.values())
+        if len(current.t) and candidates:
+            seen = np.isin(np.array([r[0] for r in candidates], dtype=np.int64), current.t)
+            candidates = [r for r, dup in zip(candidates, seen) if not dup]
+        fresh = candidates
         fresh = [r for r in fresh if r[2] >= max(r[1], r[4], r[3]) and r[3] <= min(r[1], r[4], r[2]) and r[3] > 0]
         if not fresh:
             return 0
@@ -197,4 +209,64 @@ def fetch_updates(
     return added
 
 
-__all__ = ["EMPTY_WINDOW_CODES", "M1Store", "StoredSeries", "fetch_updates"]
+def backfill_history(
+    store: M1Store,
+    provider,
+    symbol: str,
+    now: datetime,
+    *,
+    target_days: float = BACKFILL_DAYS,
+    max_pages: int = 40,
+    pause: Callable[[float], None] = time.sleep,
+    pause_seconds: float = 12.0,
+) -> int:
+    """Fetch older M1 bars (newest first, going back) until the store covers ``target_days``.
+
+    Used when the repository CSV history is missing: the models need ~85 days of M1.
+    One page = the provider's bulk size (5000 bars on Twelve Data, same 1 credit)."""
+    from app.providers.models import LiveProviderError
+
+    bulk = getattr(provider, "bulk_max_bars", None)
+    page_minutes = max(60, int(bulk or getattr(provider, "_max_bars", 800)) - 50)
+    extra = {"max_bars": int(bulk)} if bulk else {}
+    now = now.astimezone(timezone.utc).replace(second=0, microsecond=0)
+    goal = int((now - timedelta(days=target_days)).timestamp())
+    series = store.series(symbol)
+    cursor = int(series.t[0]) if len(series.t) else int(now.timestamp())  # fetch everything before this
+    added = 0
+    for page in range(max_pages):
+        if cursor <= goal:
+            break
+        end_s = cursor - 60
+        start_s = max(goal, end_s - page_minutes * 60)
+        if page:
+            pause(pause_seconds)
+        start = datetime.fromtimestamp(start_s, tz=timezone.utc)
+        end = datetime.fromtimestamp(end_s, tz=timezone.utc)
+        try:
+            bars = None
+            for attempt in range(RATE_LIMIT_RETRIES + 1):
+                try:
+                    _wait_for_budget(provider, pause)
+                    bars = provider.get_ohlc(symbol, "M1", start, end, **extra)
+                    break
+                except LiveProviderError as exc:
+                    if exc.code not in RATE_LIMIT_CODES or attempt == RATE_LIMIT_RETRIES:
+                        raise
+                    pause(RATE_LIMIT_WAIT_SECONDS)
+        except LiveProviderError as exc:
+            if exc.code in EMPTY_WINDOW_CODES:  # weekend / holiday: step over it
+                cursor = start_s
+                continue
+            logger.warning("edge_ml backfill %s stopped: %s", symbol, exc.code)
+            break
+        rows = [(int(b.timestamp.astimezone(timezone.utc).timestamp()), float(b.open), float(b.high), float(b.low), float(b.close))
+                for b in bars]
+        added += store.append(symbol, rows)
+        # a full page may be cut by the provider's count cap: then continue from the oldest bar received
+        cap = int(bulk or getattr(provider, "_max_bars", 800))
+        cursor = min(r[0] for r in rows) if rows and len(rows) >= cap else start_s
+    return added
+
+
+__all__ = ["BACKFILL_DAYS", "EMPTY_WINDOW_CODES", "M1Store", "StoredSeries", "backfill_history", "fetch_updates"]

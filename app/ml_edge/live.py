@@ -18,14 +18,15 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
 
 from app.ml_edge.data import cost_price, swap_price
 from app.ml_edge.features import build_all
-from app.ml_edge.live_store import M1Store, fetch_updates
+from app.ml_edge.data import TRAINING_SYMBOLS
+from app.ml_edge.live_store import M1Store, backfill_history, fetch_updates
 from app.ml_edge.model import SymbolModel
 from app.ml_edge.walkforward import execution_config
 from app.research.intraday import make_orders, simulate
@@ -43,6 +44,8 @@ ACTIVITY_FEATURES = ("tick_volume_z", "spread_z")
 FRESH_SECONDS = 20 * 60
 RESIMULATE_SECONDS = 2 * 86400
 RETRY_SECONDS = 60
+MAX_RETRY_SECONDS = 30 * 60
+DAILY_REQUEST_BUDGET = 600  # background requests per UTC day; Twelve Data free plan = 800 credits/day
 MIN_HISTORY_DAYS = 85  # 60-day feature windows + the threshold's 20-day warm-up
 EXIT_REASONS = {1: "TP", -1: "SL", 2: "SL"}
 WARNING_AR = "توصيات من نماذج إحصائية مختبرة على بيانات سابقة — ليست ضماناً للربح؛ نفّذها يدوياً وبمخاطرة مناسبة."
@@ -91,6 +94,8 @@ class ServiceState:
     store_last_bar_utc: dict[str, str | None] = field(default_factory=dict)
     decisions: dict[str, LatestDecision] = field(default_factory=dict)
     refreshing: bool = False
+    backfilling: str | None = None  # symbol whose history is being fetched from the provider
+    failures: int = 0  # consecutive failed refreshes (scheduler back-off)
     evaluated_utc: str | None = None  # last successful evaluation
     store_coverage: dict[str, dict] = field(default_factory=dict)
 
@@ -108,13 +113,57 @@ def _iso(seconds: int | float | None) -> str | None:
     return datetime.fromtimestamp(int(seconds), tz=timezone.utc).isoformat()
 
 
+class _BudgetedProvider:
+    """The live provider as seen by the background refresh: counts requests per UTC day, stops at the
+    daily budget (the rest is left for user analyses) and pauses until 00:00 UTC when the provider
+    says the day's credits are used up."""
+
+    def __init__(self, inner, daily_budget: int) -> None:
+        self.inner = inner
+        self.daily_budget = int(daily_budget)
+        self.day: str | None = None
+        self.used = 0
+        self.paused_until: datetime | None = None
+
+    def __getattr__(self, name):  # _request_times, _rate_limit, bulk_max_bars, _max_bars, configured ...
+        return getattr(self.inner, name)
+
+    def blocked_reason(self, now: datetime | None = None) -> str | None:
+        now = now or datetime.now(timezone.utc)
+        if self.paused_until is not None and now < self.paused_until:
+            return "credits"
+        if self.day == now.strftime("%Y-%m-%d") and self.used >= self.daily_budget:
+            return "budget"
+        return None
+
+    def get_ohlc(self, symbol, timeframe, start, end, **kwargs):
+        from app.providers.models import LiveProviderError
+
+        now = datetime.now(timezone.utc)
+        today = now.strftime("%Y-%m-%d")
+        if self.day != today:
+            self.day, self.used = today, 0
+        reason = self.blocked_reason(now)
+        if reason:
+            raise LiveProviderError(f"edge_ml background requests paused ({reason})", code=f"edge_ml_{reason}_paused")
+        self.used += 1
+        try:
+            return self.inner.get_ohlc(symbol, timeframe, start, end, **kwargs)
+        except LiveProviderError as exc:
+            if exc.code in {"provider_429", "provider_rate_limited"} and "credit" in str(exc).lower():
+                self.paused_until = (now + timedelta(days=1)).replace(hour=0, minute=0, second=5, microsecond=0)
+            raise
+
+
 class EdgeMLService:
     def __init__(self, models_dir: Path, store: M1Store, database=None, provider=None, *, history_days: int = 80,
-                 fetch_pause_seconds: float = 12.0, pause=time.sleep, fresh_seconds: int = FRESH_SECONDS) -> None:
+                 fetch_pause_seconds: float = 12.0, pause=time.sleep, fresh_seconds: int = FRESH_SECONDS,
+                 daily_request_budget: int = DAILY_REQUEST_BUDGET) -> None:
         self.models_dir = Path(models_dir)
         self.store = store
         self.database = database
         self.provider = provider
+        self.fetcher = _BudgetedProvider(provider, daily_request_budget) if provider is not None else None
         self.history_days = history_days
         self.fetch_pause_seconds = fetch_pause_seconds
         self.pause = pause
@@ -161,7 +210,7 @@ class EdgeMLService:
         try:
             live_clock = now is None  # tests pass a fixed ``now``; the scheduler uses the wall clock
             now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-            if fetch and self.provider is not None and market_open(now):
+            if fetch and self.fetcher is not None and market_open(now):
                 self._fetch_all(now)
                 if live_clock and (datetime.now(timezone.utc) - now).total_seconds() > 60:
                     # a long catch-up (first start): top up the minutes that passed meanwhile, then
@@ -172,10 +221,12 @@ class EdgeMLService:
                 now = datetime.now(timezone.utc)
             self._evaluate(now)
             self.state.last_error = None
+            self.state.failures = 0
             self.state.evaluated_utc = datetime.now(timezone.utc).isoformat()
         except Exception as exc:  # the scheduler must survive any single failure
             logger.exception("edge_ml refresh failed")
             self.state.last_error = f"{type(exc).__name__}: {exc}"[:200]
+            self.state.failures += 1
         finally:
             self.state.refreshing = False
             self.state.last_refresh_utc = datetime.now(timezone.utc).isoformat()
@@ -183,9 +234,29 @@ class EdgeMLService:
 
     def _fetch_all(self, now: datetime) -> None:
         for k, symbol in enumerate(SYMBOLS):
+            if self.fetcher.blocked_reason():
+                return
             if k:  # keep the shared provider rate limit free for user analyses
                 self.pause(self.fetch_pause_seconds)
-            fetch_updates(self.store, self.provider, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
+            fetch_updates(self.store, self.fetcher, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
+            # no repository CSV history: fetch the ~95 days the models need from the provider (once)
+            if self._coverage_days(symbol) < MIN_HISTORY_DAYS:
+                self.state.backfilling = symbol
+                try:
+                    backfill_history(self.store, self.fetcher, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
+                finally:
+                    self.state.backfilling = None
+
+    def _coverage_days(self, symbol: str) -> float:
+        series = self.store.series(symbol)
+        return float(series.t[-1] - series.t[0]) / 86400 if len(series.t) else 0.0
+
+    def _history_ok(self, symbol: str) -> bool:
+        """Enough M1 history for the model's features (own symbol + the six cross-market symbols)."""
+        cov = self.state.store_coverage
+        if not cov:  # not measured yet (tests inject decisions directly)
+            return True
+        return all(cov.get(s, {}).get("days", 0) >= MIN_HISTORY_DAYS for s in {*TRAINING_SYMBOLS, symbol} if s in cov)
 
     def _evaluate(self, now: datetime) -> None:
         self.ensure_loaded()
@@ -340,7 +411,7 @@ class EdgeMLService:
         out = []
         for loaded in self.models:
             d = self.state.decisions.get(loaded.key)
-            if d is None or d.bar_close_utc is None or d.reference_price is None:
+            if d is None or d.bar_close_utc is None or d.reference_price is None or not self._history_ok(loaded.symbol):
                 continue
             bar_s = int(datetime.fromisoformat(d.bar_close_utc).timestamp())
             if now_s - bar_s > self.fresh_seconds or bar_s > now_s:
@@ -375,10 +446,16 @@ class EdgeMLService:
             })
         return sorted(out, key=lambda r: (r["tier"] != "active", -(r["expected_r"] or 0.0)))
 
-    def recommendation(self, symbol: str | None, now: datetime | None = None) -> dict | None:
-        """Best ACTIVE recommendation for one symbol (highest expected R if A and B1 both signal)."""
+    def recommendation(self, symbol: str | None, now: datetime | None = None, *, include_candidates: bool = True) -> dict | None:
+        """Best recommendation for one symbol: an active signal if any (highest expected R if A and B1
+        both signal), otherwise the model's fresh leaning (tier "below_threshold")."""
         symbol = normalize_symbol(symbol)
-        return next((r for r in self._ranked(now) if r["symbol"] == symbol), None)
+        ranked = self._ranked(now, include_candidates=include_candidates)
+        return next((r for r in ranked if r["symbol"] == symbol), None)
+
+    def model_symbols(self) -> list[str]:
+        self.ensure_loaded()
+        return sorted({m.symbol for m in self.models})
 
     def best_recommendation(self, now: datetime | None = None) -> tuple[dict | None, list[dict]]:
         """(best recommendation across all models, the full ranked list).
@@ -404,10 +481,19 @@ class EdgeMLService:
                 problems.append("النماذج قيد التحميل والتحديث الأول (تحميل التاريخ ثم جلب آخر البيانات) — قد يستغرق عدة دقائق.")
         if self.state.last_error:
             problems.append(f"آخر تحديث للنماذج فشل: {self.state.last_error}")
-        short = [s for s, c in self.state.store_coverage.items() if c.get("days", 0) < MIN_HISTORY_DAYS]
+        short = {s: c.get("days", 0) for s, c in self.state.store_coverage.items() if c.get("days", 0) < MIN_HISTORY_DAYS}
         if short:
-            problems.append(f"تاريخ غير كافٍ ({', '.join(short)}): النماذج تحتاج {MIN_HISTORY_DAYS} يوماً على الأقل من بيانات M1 — "
-                            "انسخ ملفات data/raw/<الرمز>/*.csv من GitHub ثم أعد تشغيل التطبيق.")
+            detail = "، ".join(f"{s} {d:.0f} يوماً" for s, d in short.items())
+            problems.append(f"تاريخ M1 غير كافٍ ({detail}) من {MIN_HISTORY_DAYS} يوماً مطلوبة — يجري جلبه تلقائياً من Twelve Data "
+                            "(نحو 20 طلباً لكل زوج، مرة واحدة). أسرع حل: ضع ملفات data/raw/<الرمز>/*.csv من GitHub وأعد تشغيل التطبيق.")
+        if self.state.backfilling:
+            problems.append(f"جلب التاريخ الآن لـ {self.state.backfilling}…")
+        blocked = self.fetcher.blocked_reason(now) if self.fetcher is not None else None
+        if blocked == "credits":
+            problems.append("نفد رصيد Twelve Data اليومي — توقف تحديث النماذج حتى 00:00 UTC (03:00 بتوقيت بغداد). "
+                            "قلّل EDGE_HUNTER_EDGE_ML_REFRESH_MINUTES أو استخدم خطة أعلى.")
+        elif blocked == "budget":
+            problems.append(f"بلغ تحديث النماذج حده اليومي ({self.fetcher.daily_budget} طلب) — يُترك الباقي لتحليلاتك حتى 00:00 UTC.")
         if market_open(now) and self.state.store_last_bar_utc:
             lagging = [s for s, t in self.state.store_last_bar_utc.items()
                        if t and now_s - int(datetime.fromisoformat(t).timestamp()) > 3 * 3600]
@@ -418,7 +504,9 @@ class EdgeMLService:
         fresh = [k for k, d in self.state.decisions.items() if d.bar_close_utc
                  and now_s - int(datetime.fromisoformat(d.bar_close_utc).timestamp()) <= self.fresh_seconds]
         return {"ready": bool(fresh), "fresh_models": len(fresh), "refreshing": self.state.refreshing,
-                "evaluated_utc": self.state.evaluated_utc, "problems_ar": problems}
+                "evaluated_utc": self.state.evaluated_utc, "problems_ar": problems,
+                "provider_requests_today": self.fetcher.used if self.fetcher is not None else 0,
+                "daily_request_budget": self.fetcher.daily_budget if self.fetcher is not None else 0}
 
     def quote_to_usd(self, symbol: str) -> float | None:
         """USD value of one unit of the symbol's quote currency, from the latest stored closes."""
@@ -488,7 +576,7 @@ class EdgeMLService:
 class EdgeMLScheduler:
     """Background thread: refresh 90 s after every M15 close (or every N x 15 min) and once at start."""
 
-    def __init__(self, service: EdgeMLService, *, interval_minutes: int = 15, offset_seconds: int = 90) -> None:
+    def __init__(self, service: EdgeMLService, *, interval_minutes: int = 30, offset_seconds: int = 90) -> None:
         self.service = service
         self.interval_seconds = max(15, int(interval_minutes)) // 15 * 15 * 60
         self.offset_seconds = offset_seconds
@@ -510,7 +598,9 @@ class EdgeMLScheduler:
             now = time.time()
             next_run = (int(now) // self.interval_seconds + 1) * self.interval_seconds + self.offset_seconds
             if self.service.state.evaluated_utc is None or self.service.state.last_error:
-                next_run = min(next_run, now + RETRY_SECONDS)  # not ready yet: retry soon
+                # not ready yet / failed: retry soon, backing off 1, 2, 4 ... 30 minutes
+                backoff = min(MAX_RETRY_SECONDS, RETRY_SECONDS * 2 ** max(0, self.service.state.failures - 1))
+                next_run = min(next_run, now + backoff)
             if self._stop.wait(max(1.0, next_run - now)):
                 break
             self.service.refresh()

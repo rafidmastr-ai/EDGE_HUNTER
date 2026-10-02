@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.admin.schemas import AdminLoginRequest, CodeGenerationRequest, SubscriptionActionRequest
 from app.admin.service import AdminService
@@ -185,6 +186,7 @@ def create_web_app(
             live_provider,
             # a decision stays actionable until the next scheduled refresh (+5 min margin)
             fresh_seconds=max(20 * 60, settings.edge_ml_refresh_minutes * 60 + 5 * 60),
+            daily_request_budget=settings.edge_ml_daily_request_budget,
         )
         # Only a configured live provider feeds the store; the test environment and local mode never start the thread.
         if (settings.data_mode == "live" and settings.environment != "test"
@@ -210,8 +212,14 @@ def create_web_app(
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", include_in_schema=False)
-    async def index() -> FileResponse:
-        return FileResponse(static_dir / "index.html")
+    async def index() -> Response:
+        # versioned asset URLs + no-cache: after copying new files the browser never mixes an
+        # old index.html with a new app.js (or the reverse)
+        html = (static_dir / "index.html").read_text(encoding="utf-8")
+        for asset in ("app.js", "styles.css"):
+            stat = (static_dir / asset).stat()
+            html = html.replace(f'"/static/{asset}"', f'"/static/{asset}?v={int(stat.st_mtime)}-{stat.st_size}"')
+        return Response(content=html, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
 
     @app.get("/admin", include_in_schema=False)
     async def admin_index() -> FileResponse:
@@ -449,7 +457,8 @@ def create_web_app(
         _user_csrf_session(request, auth)
         auth.require_analysis_access(request.cookies.get(SESSION_COOKIE), expected_scope=USER_SCOPE)
         try:
-            result, observations = service.analyze_with_observations(payload)
+            # provider calls (and a short wait for a free request slot) must not freeze other requests
+            result, observations = await run_in_threadpool(service.analyze_with_observations, payload)
             if observations and settings.data_mode == "live":
                 # Runs after the response is sent: storing setups for later outcome
                 # labelling never delays the recommendation shown to the user.

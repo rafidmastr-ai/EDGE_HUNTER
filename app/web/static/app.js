@@ -105,8 +105,9 @@
     });
     if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
 
-    renderEdgeML(data.metadata?.edge_ml);
-    renderRecommendationSource(data);
+    // optional panels: never let them break the main result (e.g. an old cached index.html)
+    try { renderEdgeML(data.metadata?.edge_ml); } catch (error) { console.warn('EDGE ML card', error); }
+    try { renderRecommendationSource(data); } catch (error) { console.warn('recommendation source', error); }
 
     const impact = data.capital_impact;
     const impactCard = el('capital-impact');
@@ -142,7 +143,11 @@
       node.textContent = `مصدر التوصية: نماذج EDGE ML — لا توجد توصية الآن.${problems.length ? ' ' + problems[0] : ''}`;
     } else {
       node.dataset.source = 'classic';
-      node.textContent = 'مصدر التوصية: التحليل الكلاسيكي (لا توجد إشارة نشطة من نماذج EDGE ML لهذا الرمز).';
+      const modelPairs = data.metadata?.edge_ml_model_symbols || [];
+      const hasModel = modelPairs.includes(String(data.symbol || '').replace('/', '').toUpperCase());
+      node.textContent = hasModel
+        ? 'مصدر التوصية: التحليل الكلاسيكي (نموذج EDGE ML لهذا الزوج ليس جاهزاً الآن — انظر بطاقة حالة النماذج).'
+        : `مصدر التوصية: التحليل الكلاسيكي — لا يوجد نموذج EDGE ML لهذا الرمز. أزواج النماذج: ${modelPairs.join('، ') || '—'}. اترك الحقل فارغاً لأفضل صفقة من النماذج.`;
     }
   }
 
@@ -197,8 +202,8 @@
     ['entry', 'target', 'stop-loss', 'lot'].forEach((id) => { el(id).textContent = '—'; });
     el('comparison-body').innerHTML = '<tr><td colspan="4">لا توجد نتيجة بعد.</td></tr>';
     el('capital-impact').hidden = true;
-    el('edge-ml-body').innerHTML = '<tr><td colspan="5">لا توجد نتيجة بعد.</td></tr>';
-    el('recommendation-source').hidden = true;
+    if (el('edge-ml-body')) el('edge-ml-body').innerHTML = '<tr><td colspan="5">لا توجد نتيجة بعد.</td></tr>';
+    if (el('recommendation-source')) el('recommendation-source').hidden = true;
     window.__lastChart = { candles: [], markers: {} };
     drawChart([], {});
   }

@@ -138,6 +138,7 @@ class LocalOHLCAnalysisService:
             self._apply_no_recommendation(result)
         else:
             result["metadata"]["recommendation_source"] = "classic"
+            self._add_model_hint(result, request.symbol)
         return result, observations
 
     def _apply_model_recommendation(self, result: dict, request: AnalyzeRequest, rec: dict, *, auto: bool) -> None:
@@ -156,7 +157,9 @@ class LocalOHLCAnalysisService:
         bar_baghdad = bar_utc.astimezone(timezone(timedelta(hours=3)))
         reasons = [
             (f"أفضل توصية متاحة الآن — دون عتبة الدخول المختبرة لنموذج EDGE ML ({rec['model']}): "
-             "لا يوجد أي نموذج تجاوز عتبته الآن، فهذا أقوى ميل بين النماذج وجودته غير مثبتة في الاختبارات.")
+             + ("لا يوجد أي نموذج تجاوز عتبته الآن، فهذا أقوى ميل بين النماذج" if auto
+                else "نموذج هذا الزوج لم يتجاوز عتبته الآن، فهذا ميله الحالي")
+             + " وجودته غير مثبتة في الاختبارات.")
             if below else f"توصية نموذج EDGE ML ({rec['model']}) — {rec['variant_title_ar']}.",
             f"القرار عند إغلاق شمعة M15 الساعة {bar_utc:%H:%M} UTC ({bar_baghdad:%H:%M} بتوقيت بغداد)، قبل {rec['age_minutes']:.0f} دقيقة.",
             f"العائد المتوقع للنموذج: {rec['expected_r']:+.2f}R بعد السبريد (نسبة الهدف إلى الوقف 1:1، الوقف والهدف = 2 × ATR على M15).",
@@ -188,6 +191,27 @@ class LocalOHLCAnalysisService:
         result["metadata"]["recommendation_tier"] = rec.get("tier", "active")
         result["metadata"]["model_recommendation"] = rec
         result["metadata"]["classic_analysis"] = classic
+
+    def _add_model_hint(self, result: dict, symbol: str) -> None:
+        """A classic "no clear signal" on a pair without a usable model: say where model trades are."""
+        if self.edge_ml is None:
+            return
+        try:
+            pairs = self.edge_ml.model_symbols()
+            readiness = self.edge_ml.readiness()
+        except Exception:
+            return
+        result["metadata"]["edge_ml_model_symbols"] = pairs
+        if result.get("direction") != "NO_CLEAR_SIGNAL":
+            return
+        compact = (symbol or "").replace("/", "").upper()
+        if compact in pairs:  # a model pair without a fresh decision: explain why
+            result["reasons"] = [*result.get("reasons", []), "نموذج EDGE ML لهذا الزوج ليس لديه قرار حديث الآن.",
+                                 *readiness.get("problems_ar", [])]
+        else:
+            result["reasons"] = [*result.get("reasons", []),
+                                 f"لا يوجد نموذج EDGE ML لهذا الرمز؛ نماذج التوصيات متاحة لـ: {', '.join(pairs)}.",
+                                 "اترك حقل الرمز فارغاً للحصول على أفضل صفقة متاحة من النماذج."]
 
     def _apply_no_recommendation(self, result: dict) -> None:
         try:
