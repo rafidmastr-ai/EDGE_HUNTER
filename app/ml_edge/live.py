@@ -403,7 +403,7 @@ class EdgeMLService:
 
     # ------------------------------------------------------------------ status
     # ------------------------------------------------------------------ recommendations
-    def _ranked(self, now: datetime | None = None, *, include_candidates: bool = False) -> list[dict]:
+    def _ranked(self, now: datetime | None = None, *, include_candidates: bool = False, allow_no_edge: bool = False) -> list[dict]:
         """Fresh model decisions at ``now``: tier "active" (passed the tested entry threshold) first,
         then - if asked - tier "below_threshold" (the model's leaning, not validated), each by expected R."""
         self.ensure_loaded()
@@ -418,7 +418,7 @@ class EdgeMLService:
                 continue
             if d.direction != "NONE" and d.stop_loss is not None:
                 tier, direction, stop, take, expected = "active", d.direction, d.stop_loss, d.take_profit, d.expected_r
-            elif include_candidates and d.candidate_direction and (d.candidate_expected_r or 0) > 0:
+            elif include_candidates and d.candidate_direction and (allow_no_edge or (d.candidate_expected_r or 0) > 0):
                 tier, direction, stop, take, expected = ("below_threshold", d.candidate_direction, d.candidate_stop_loss,
                                                          d.candidate_take_profit, d.candidate_expected_r)
             else:
@@ -450,7 +450,8 @@ class EdgeMLService:
         """Best recommendation for one symbol: an active signal if any (highest expected R if A and B1
         both signal), otherwise the model's fresh leaning (tier "below_threshold")."""
         symbol = normalize_symbol(symbol)
-        ranked = self._ranked(now, include_candidates=include_candidates)
+        # a typed pair always gets its model's direction, even a near-zero leaning (reported as no edge)
+        ranked = self._ranked(now, include_candidates=include_candidates, allow_no_edge=include_candidates)
         return next((r for r in ranked if r["symbol"] == symbol), None)
 
     def model_symbols(self) -> list[str]:

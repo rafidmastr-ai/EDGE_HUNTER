@@ -171,6 +171,9 @@ class LocalOHLCAnalysisService:
                 f"نتائج الاختبار الأمامي للنموذج: {forward.get('trades')} صفقة، فوز {100 * (forward.get('win_rate') or 0):.0f}%، "
                 f"متوسط {forward.get('avg_r', 0):+.2f}R، PF {forward.get('profit_factor')}."
             )
+        if (rec.get("expected_r") or 0) <= 0:
+            reasons.insert(1, "تنبيه: ميل النموذج لهذا الزوج قريب من الصفر الآن ولا يتجاوز السبريد (لا ميزة متوقعة) — يُفضّل الانتظار.")
+            confidence = min(confidence, 10.0)
         reasons.append("توصية من نموذج إحصائي وليست ضماناً — نفّذها يدوياً وبمخاطرة مناسبة.")
         result.update({
             "status": "success",

@@ -326,6 +326,14 @@ class RecommendationTests(unittest.TestCase):
         best, _ = self.svc.best_recommendation(self.NOW)
         self.assertEqual((best["model"], best["tier"]), ("A/NZDUSD", "active"))
 
+    def test_typed_pair_gets_a_near_zero_leaning_but_the_best_pick_skips_it(self) -> None:
+        bar = (self.NOW - timedelta(minutes=5)).isoformat()
+        self.svc.state.decisions["B1/CADJPY"] = LatestDecision(bar, "NONE", 0.003, 0.08, 111.0, None, None, True, None,
+                                                               "BUY", 110.84, 111.16, -0.003)
+        typed = self.svc.recommendation("CADJPY", self.NOW)
+        self.assertEqual((typed["tier"], typed["direction"], typed["expected_r"]), ("below_threshold", "BUY", -0.003))
+        self.assertEqual(self.svc.best_recommendation(self.NOW), (None, []))
+
     def test_readiness_explains_missing_history_and_warm_up(self) -> None:
         r = self.svc.readiness(self.NOW)
         self.assertFalse(r["ready"])

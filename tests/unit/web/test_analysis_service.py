@@ -151,6 +151,13 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertIn("دون عتبة الدخول المختبرة", result["reasons"][0])
         self.assertEqual(result["metadata"]["recommendation_tier"], "below_threshold")
 
+    def test_no_edge_leaning_is_shown_with_a_warning(self) -> None:
+        rec = {**self._recommendation("BUY"), "tier": "below_threshold", "expected_r": -0.01}
+        result = LocalOHLCAnalysisService(self.root, edge_ml=self._stub(rec)).analyze(AnalyzeRequest(symbol="XAUUSD"))
+        self.assertEqual(result["direction"], "BUY")
+        self.assertLessEqual(result["confidence"], 10.0)
+        self.assertIn("لا ميزة متوقعة", result["reasons"][1])
+
     def test_no_recommendation_explains_why(self) -> None:
         stub = self._stub(None)
         stub.readiness = lambda: {"problems_ar": ["النماذج قيد التحميل والتحديث الأول"]}
