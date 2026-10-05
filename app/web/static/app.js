@@ -140,7 +140,7 @@
     } else if (source === 'edge_ml_auto') {
       node.dataset.source = 'none';
       const problems = data.metadata?.edge_ml_readiness?.problems_ar || [];
-      node.textContent = `مصدر التوصية: نماذج EDGE ML — لا توجد توصية الآن.${problems.length ? ' ' + problems[0] : ''}`;
+      node.textContent = `مصدر التوصية: نماذج EDGE ML — لا توجد توصية الآن.${problems.length ? ' ' + problems.join(' · ') : ''}`;
     } else {
       node.dataset.source = 'classic';
       const modelPairs = data.metadata?.edge_ml_model_symbols || [];

@@ -182,7 +182,7 @@ def check_history(settings, report: Report, raw_dir: Path) -> None:
     if missing:
         report.bad("تاريخ M1 غير كافٍ للنماذج: " + "، ".join(missing),
                    f"الأسرع: انسخ مجلدات data/raw/<الرمز>/ (ملفات *_M1_*.csv و SOURCE.json) من GitHub ثم أعد تشغيل التطبيق. "
-                   f"وإلا يجلبه التطبيق تلقائياً من Twelve Data (نحو 20 طلباً لكل زوج، مرة واحدة، قد يستغرق ساعة تقريباً).")
+                   f"وإلا يجلبه التطبيق تلقائياً من Twelve Data (نحو 4 طلبات لكل زوج، مرة واحدة، 5–10 دقائق).")
     else:
         report.good(f"تاريخ M1 كافٍ (≥ {MIN_HISTORY_DAYS} يوماً) للرموز الثمانية.")
 

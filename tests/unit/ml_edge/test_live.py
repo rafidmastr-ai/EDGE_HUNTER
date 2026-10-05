@@ -56,13 +56,15 @@ class FakeProvider:
 
     def get_ohlc(self, symbol, timeframe, start, end, max_bars=None):
         self.calls.append((start, end))
+        self.timeframes = getattr(self, "timeframes", []) + [timeframe]
         code = self.errors.get(len(self.calls))
         if code:
             raise LiveProviderError("scripted", code=code)
+        step = timedelta(minutes=15 if timeframe == "M15" else 1)
         bars, t = [], start
         while t <= end:
             bars.append(Bar(t, 1.0, 1.001, 0.999, 1.0005))
-            t += timedelta(minutes=1)
+            t += step
         return bars
 
 
@@ -157,11 +159,13 @@ class StoreTests(unittest.TestCase):
         provider.bulk_max_bars = 2000
         added = backfill_history(store, provider, "EURUSD", now, target_days=5, pause=lambda s: None)
         series = store.series("EURUSD")
-        self.assertGreater(added, 5 * 1440 - 100)
+        self.assertGreater(added, 5 * 96 - 10)  # 15-minute history bars
+        self.assertEqual(set(provider.timeframes), {"M15"})
+        self.assertLessEqual(len(provider.calls), 2)  # 2000 bars x 15 min = ~20 days per request
         self.assertLessEqual(int(series.t[0]), int((now - timedelta(days=5)).timestamp()) + 60)
         self.assertEqual(len(series.t), len(set(series.t.tolist())))
         self.assertTrue(all(c[0] <= c[1] for c in provider.calls))
-        self.assertGreater(provider.calls[0][0], provider.calls[-1][0])  # newest first, going back
+        self.assertGreaterEqual(provider.calls[0][0], provider.calls[-1][0])  # newest first, going back
         calls = len(provider.calls)
         backfill_history(store, provider, "EURUSD", now, target_days=5, pause=lambda s: None)
         self.assertEqual(len(provider.calls), calls)  # already covered: no more requests
@@ -339,7 +343,7 @@ class RecommendationTests(unittest.TestCase):
         self.assertFalse(r["ready"])
         self.assertTrue(any("مزوّد البيانات الحية غير مفعّل" in p for p in r["problems_ar"]))
         self.svc.state.store_coverage = {"AUDJPY": {"days": 4.0}, "EURJPY": {"days": 150.0}}
-        self.assertTrue(any("AUDJPY" in p and "data/raw" in p for p in self.svc.readiness(self.NOW)["problems_ar"]))
+        self.assertTrue(any("AUDJPY" in p and "Twelve Data" in p for p in self.svc.readiness(self.NOW)["problems_ar"]))
         weekend = datetime(2026, 10, 3, 12, tzinfo=timezone.utc)
         self.assertTrue(any("السوق مغلق" in p for p in self.svc.readiness(weekend)["problems_ar"]))
 

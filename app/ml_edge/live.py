@@ -95,6 +95,7 @@ class ServiceState:
     decisions: dict[str, LatestDecision] = field(default_factory=dict)
     refreshing: bool = False
     backfilling: str | None = None  # symbol whose history is being fetched from the provider
+    stage: str | None = None  # what the running refresh is doing (shown in the UI)
     failures: int = 0  # consecutive failed refreshes (scheduler back-off)
     evaluated_utc: str | None = None  # last successful evaluation
     store_coverage: dict[str, dict] = field(default_factory=dict)
@@ -105,6 +106,16 @@ def market_open(now: datetime) -> bool:
     now = now.astimezone(timezone.utc)
     weekday, hour = now.weekday(), now.hour
     return not (weekday == 5 or (weekday == 6 and hour < 21) or (weekday == 4 and hour >= 21))
+
+
+def _last_market_close(now: datetime) -> int:
+    """Epoch seconds of the most recent Friday 21:00 UTC at or before ``now``."""
+    now = now.astimezone(timezone.utc)
+    days_back = (now.weekday() - 4) % 7
+    friday = (now - timedelta(days=days_back)).replace(hour=21, minute=0, second=0, microsecond=0)
+    if friday > now:
+        friday -= timedelta(days=7)
+    return int(friday.timestamp())
 
 
 def _iso(seconds: int | float | None) -> str | None:
@@ -210,7 +221,8 @@ class EdgeMLService:
         try:
             live_clock = now is None  # tests pass a fixed ``now``; the scheduler uses the wall clock
             now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-            if fetch and self.fetcher is not None and market_open(now):
+            # weekends: no new bars, but missing history / the gap up to Friday's close is still fetched
+            if fetch and self.fetcher is not None and (market_open(now) or self._needs_catch_up(now)):
                 self._fetch_all(now)
                 if live_clock and (datetime.now(timezone.utc) - now).total_seconds() > 60:
                     # a long catch-up (first start): top up the minutes that passed meanwhile, then
@@ -219,6 +231,7 @@ class EdgeMLService:
                     self._fetch_all(now)
             if live_clock:
                 now = datetime.now(timezone.utc)
+            self.state.stage = "حساب قرارات النماذج"
             self._evaluate(now)
             self.state.last_error = None
             self.state.failures = 0
@@ -229,6 +242,7 @@ class EdgeMLService:
             self.state.failures += 1
         finally:
             self.state.refreshing = False
+            self.state.stage = None
             self.state.last_refresh_utc = datetime.now(timezone.utc).isoformat()
             self._refresh_lock.release()
 
@@ -238,14 +252,24 @@ class EdgeMLService:
                 return
             if k:  # keep the shared provider rate limit free for user analyses
                 self.pause(self.fetch_pause_seconds)
+            self.state.stage = f"جلب آخر البيانات: {symbol} ({k + 1}/{len(SYMBOLS)})"
             fetch_updates(self.store, self.fetcher, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
             # no repository CSV history: fetch the ~95 days the models need from the provider (once)
             if self._coverage_days(symbol) < MIN_HISTORY_DAYS:
+                self.state.stage = f"جلب تاريخ 95 يوماً (M15): {symbol} ({k + 1}/{len(SYMBOLS)})"
                 self.state.backfilling = symbol
                 try:
                     backfill_history(self.store, self.fetcher, symbol, now, pause=self.pause, pause_seconds=self.fetch_pause_seconds)
                 finally:
                     self.state.backfilling = None
+
+    def _needs_catch_up(self, now: datetime) -> bool:
+        last_close = _last_market_close(now)
+        for symbol in SYMBOLS:
+            series = self.store.series(symbol)
+            if not len(series.t) or self._coverage_days(symbol) < MIN_HISTORY_DAYS or series.t[-1] < last_close - 3600:
+                return True
+        return False
 
     def _coverage_days(self, symbol: str) -> float:
         series = self.store.series(symbol)
@@ -479,16 +503,15 @@ class EdgeMLService:
             if self.provider is None or not getattr(self.provider, "configured", False):
                 problems.append("مزوّد البيانات الحية غير مفعّل، فلا تُحدَّث النماذج (شغّل التطبيق بوضع live مع مفتاح Twelve Data).")
             elif self.state.refreshing or self.state.last_refresh_utc is None:
-                problems.append("النماذج قيد التحميل والتحديث الأول (تحميل التاريخ ثم جلب آخر البيانات) — قد يستغرق عدة دقائق.")
+                stage = f" — الآن: {self.state.stage}" if self.state.stage else ""
+                problems.append(f"النماذج قيد التحميل والتحديث الأول (عادة 3–10 دقائق){stage}.")
         if self.state.last_error:
             problems.append(f"آخر تحديث للنماذج فشل: {self.state.last_error}")
         short = {s: c.get("days", 0) for s, c in self.state.store_coverage.items() if c.get("days", 0) < MIN_HISTORY_DAYS}
         if short:
             detail = "، ".join(f"{s} {d:.0f} يوماً" for s, d in short.items())
             problems.append(f"تاريخ M1 غير كافٍ ({detail}) من {MIN_HISTORY_DAYS} يوماً مطلوبة — يجري جلبه تلقائياً من Twelve Data "
-                            "(نحو 20 طلباً لكل زوج، مرة واحدة). أسرع حل: ضع ملفات data/raw/<الرمز>/*.csv من GitHub وأعد تشغيل التطبيق.")
-        if self.state.backfilling:
-            problems.append(f"جلب التاريخ الآن لـ {self.state.backfilling}…")
+                            "(طلبان تقريباً لكل زوج، مرة واحدة).")
         blocked = self.fetcher.blocked_reason(now) if self.fetcher is not None else None
         if blocked == "credits":
             problems.append("نفد رصيد Twelve Data اليومي — توقف تحديث النماذج حتى 00:00 UTC (03:00 بتوقيت بغداد). "
