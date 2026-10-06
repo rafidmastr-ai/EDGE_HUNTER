@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 import time
@@ -53,8 +54,9 @@ CACHE = PROJECT_ROOT / "data" / "processed" / "edge_ml_cache"
 MODELS_V1 = PROJECT_ROOT / "data" / "models" / "edge_ml"
 MODELS_V2 = PROJECT_ROOT / "data" / "models" / "edge_ml_v2"
 RESULTS = PROJECT_ROOT / "docs" / "results"
-NEW_FORWARD = ts("2025-09-01")
-DATA_END_REQUIRED = ts("2026-09-25")
+# retrain on newer data: scripts/retrain_edge_ml.py --dev-end sets these together with the walk-forward dates
+NEW_FORWARD = ts(os.environ.get("EDGE_HUNTER_ML_NEW_FORWARD", "").strip() or "2025-09-01")
+DATA_END_REQUIRED = ts(os.environ.get("EDGE_HUNTER_ML_DATA_END_REQUIRED", "").strip() or "2026-09-25")
 SEGMENTS = {
     "validation": (FOLDS[0][0], DEV_END),
     "oos": (DEV_END, OOS_END),
@@ -81,7 +83,7 @@ def check_data(symbols) -> list[str]:
         t = d.m1.open_time
         if t[-1] < DATA_END_REQUIRED:
             problems.append(f"{s}: data ends {iso(t[-1])}")
-        after = t[t >= ts("2025-08-25")]
+        after = t[t >= NEW_FORWARD - 7 * 86400]
         gaps = np.diff(after)
         big = np.flatnonzero(gaps > 4 * 86400)
         for i in big:

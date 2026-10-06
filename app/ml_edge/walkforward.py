@@ -9,6 +9,7 @@ OOS and the forward period are never used for any choice.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -25,9 +26,28 @@ def ts(text: str) -> int:
     return int(datetime.fromisoformat(text).replace(tzinfo=timezone.utc).timestamp())
 
 
-DEV_END = ts("2023-11-14T23:02:00")
-OOS_END = ts("2025-01-01")
-FOLDS = ((ts("2021-01-01"), ts("2022-01-01")), (ts("2022-01-01"), ts("2023-01-01")), (ts("2023-01-01"), DEV_END))
+def study_dates(env=os.environ) -> tuple[int, int, tuple[tuple[int, int], ...]]:
+    """(DEV_END, OOS_END, FOLDS). Defaults are the published study; EDGE_HUNTER_ML_DEV_END
+    (and optionally EDGE_HUNTER_ML_OOS_END) move them for a retrain on newer data.
+    Three validation folds by calendar year end at DEV_END; a last year shorter than
+    ~6 months is merged into the previous fold. OOS_END defaults to DEV_END + 410 days."""
+    dev_text = env.get("EDGE_HUNTER_ML_DEV_END", "").strip()
+    if not dev_text:
+        dev_end = ts("2023-11-14T23:02:00")
+        return dev_end, ts("2025-01-01"), ((ts("2021-01-01"), ts("2022-01-01")), (ts("2022-01-01"), ts("2023-01-01")), (ts("2023-01-01"), dev_end))
+    dev_end = ts(dev_text)
+    oos_text = env.get("EDGE_HUNTER_ML_OOS_END", "").strip()
+    oos_end = ts(oos_text) if oos_text else dev_end + 410 * 86400
+    if oos_end <= dev_end:
+        raise ValueError("EDGE_HUNTER_ML_OOS_END must be after EDGE_HUNTER_ML_DEV_END")
+    year = datetime.fromtimestamp(dev_end, tz=timezone.utc).year
+    if dev_end - ts(f"{year}-01-01") < 180 * 86400:
+        year -= 1
+    starts = [ts(f"{y}-01-01") for y in (year - 2, year - 1, year)]
+    return dev_end, oos_end, ((starts[0], starts[1]), (starts[1], starts[2]), (starts[2], dev_end))
+
+
+DEV_END, OOS_END, FOLDS = study_dates()
 EMBARGO = DAY
 LABELS = (LabelConfig(1.0, 8), LabelConfig(1.0, 16), LabelConfig(2.0, 8), LabelConfig(2.0, 16))
 HOLD_LABELS = tuple(LabelConfig(b, 48, max_hold_minutes=720) for b in (2.0, 3.0, 4.0))
